@@ -5,17 +5,22 @@
 struct window;
 // opaque struct define in directx.h and opengl.h
 struct renderer;
+struct shader;
 
-window *
-CreatePlatformWindow(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena);
-renderer *
-CreateRenderer(window *Window, arena *Arena);
-
+window *PlatformCreateWindow(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena);
+renderer *PlatformCreateRenderer(window *Window, arena *Arena);
+shader *PlatformCreateShadersFromFile(renderer *Renderer,
+                                      char * VertexShaderFileName, char *VSMainFunc,
+                                      char *PixelShaderFileName, char *PSMainFunc,
+                                      arena *Arena);
 struct game_state
 {
     window *Window;
     renderer *Renderer;
     arena RenderArena;
+
+    shader *Shader;
+    mesh *Cube;
 }; 
   
 

@@ -30,7 +30,6 @@ StringLength(char * String)
 #include "bitmap.cpp"
 #include "mesh.h"
 #include "main.h"
-#include "main.cpp"
 
 struct window
 {
@@ -48,6 +47,8 @@ struct mat4_constant_buffer
 
 #include "directx.h"
 #include "directx.cpp"
+
+#include "main.cpp"
 
 static bool GlobalRunning;
 static HINSTANCE GlobalInstance;
@@ -109,7 +110,7 @@ void PrintMat4(mat4 M)
 }
 
 static window *
-CreatePlatformWindow(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena)
+PlatformCreateWindow(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena)
 {
     window *Window = (window *)PushStruct(Arena, window);
     
@@ -138,6 +139,45 @@ CreatePlatformWindow(char * WindowName, int WindowWidth, int WindowHeight, arena
     Window->Width = WindowWidth;
     Window->Height = WindowHeight;
     return Window;
+
+}
+
+static renderer *
+PlatformCreateRenderer(window *Window, arena *Arena)
+{
+    renderer *Renderer = (renderer *)PushStruct(Arena, renderer);
+    D3D11Initialize(Window->Window, &Renderer->Device,
+                    &Renderer->RenderContext, &Renderer->SwapChain,
+                    &Renderer->BackBuffer, Window->Width, Window->Height);
+    InitMa4ConstBuffer(Renderer);
+    return Renderer;
+}
+
+
+// in the furture pass more information for the input layout desc
+static shader *
+PlatformCreateShadersFromFile(renderer *Renderer,
+                              char * VertexShaderFileName, char *VSMainFunc,
+                              char *PixelShaderFileName, char *PSMainFunc,
+                              arena *Arena)
+{
+        shader *Shader = (shader *)PushStruct(Arena, shader);
+       
+        D3D11_INPUT_ELEMENT_DESC InputLayoutDesc[] =
+        {
+            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
+            0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,
+            0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+            {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT,
+            0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0}
+        };
+        D3D11CreateVertexShader(Renderer->Device, VertexShaderFileName, VSMainFunc,
+                                &Shader->VertexShader, &Shader->InputLayout, InputLayoutDesc,
+                                ArrayCount(InputLayoutDesc), Arena);
+        D3D11CreatePixelShader(Renderer->Device, PixelShaderFileName, PSMainFunc,
+                               &Shader->PixelShader, Arena);
+        return Shader;
 
 }
 
@@ -173,111 +213,6 @@ int WINAPI WinMain(HINSTANCE Instance,
         GetClientRect(Window->Window, &ClientDimensions);
         unsigned int Width  = ClientDimensions.right - ClientDimensions.left;
         unsigned int Height = ClientDimensions.bottom - ClientDimensions.top;
-
-        /////////////////////////////////////////////////////////////
-        // Test Code: Create A cube and Pass it to the Grafic Card
-        /////////////////////////////////////////////////////////////
-        float Vertices[] = {
-            -1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-             1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-             1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-            -1.0f, 1.0f,  1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-
-            -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f,
-             1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, -1.0f, 0.0f,
-             1.0f, -1.0f,  1.0f, 1.0f, 1.0f, 0.0f, -1.0f, 0.0f,
-            -1.0f, -1.0f,  1.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f,
-            
-            -1.0f, -1.0f,  1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-            -1.0f, -1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-            -1.0f,  1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-            -1.0f,  1.0f,  1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-            
-            1.0f, -1.0f,  1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-            1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-            1.0f,  1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-            1.0f,  1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-            
-            -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
-             1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f,
-             1.0f,  1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, -1.0f,
-            
-            -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-             1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-             1.0f,  1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-            -1.0f,  1.0f, 1.0f, 0.0f, 1.0f,  0.0f, 0.0f, 1.0f
-        };
-        unsigned int Indices[] =
-        {
-            3,1,0,2,1,3,
-            6,4,5,7,4,6,
-            11,9,8, 10,9, 11,
-            14, 12, 13, 15, 12, 14,
-            19, 17, 16, 18, 17, 19,
-            22, 20, 21, 23, 20, 22
-        };
-
-        // Create the buffer settings
-        D3D11_BUFFER_DESC CubeBufferDesc = {};
-        CubeBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-        CubeBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        CubeBufferDesc.ByteWidth = sizeof(float)*ArrayCount(Vertices);
-        // Add the Vertices
-        D3D11_SUBRESOURCE_DATA ResourceData = {};
-        ResourceData.pSysMem = Vertices;
-        // Create the Buffer
-        ID3D11Buffer *CubeBuffer = 0;
-        HRESULT Result = Renderer->Device->CreateBuffer(&CubeBufferDesc, &ResourceData, &CubeBuffer);
-        if(SUCCEEDED(Result))
-        {
-            OutputDebugString("Cube Buffer Created!\n");
-        }
-        // Create Index Buffer
-        D3D11_BUFFER_DESC IndexDesc = {};
-        IndexDesc.Usage = D3D11_USAGE_DEFAULT;
-        IndexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        IndexDesc.ByteWidth = sizeof( int )*ArrayCount(Indices);
-        IndexDesc.CPUAccessFlags = 0;
-        ResourceData.pSysMem = Indices;
-
-        ID3D11Buffer *CubeIndex = 0;
-        Result = Renderer->Device->CreateBuffer(&IndexDesc, &ResourceData, &CubeIndex);
-        if(SUCCEEDED(Result))
-        {
-            OutputDebugString("Cube Indices Created!\n");
-        }
-        /////////////////////////////////////////////////////////////
-
-
-
-        // Creating Vertex and Pixel Shader
-        ID3D11VertexShader *VertexShader = 0;
-        ID3D11PixelShader *PixelShader = 0;
-        ID3D11InputLayout *InputLayout = 0;
-       
-        D3D11_INPUT_ELEMENT_DESC InputLayoutDesc[] =
-        {
-            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
-            0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,
-            0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT,
-            0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0}
-        };
-        D3D11CreateVertexShader(Renderer->Device, "../Code/main_vertex_shader.hlsl", "VS_Main",
-                                &VertexShader, &InputLayout, InputLayoutDesc,
-                                ArrayCount(InputLayoutDesc), &FileArena);
-        D3D11CreatePixelShader(Renderer->Device, "../Code/main_pixel_shader.hlsl", "PS_Main",
-                               &PixelShader, &FileArena);
-       
-        InitMa4ConstBuffer(Renderer->Device);
-        mat4 World = IdentityMat4();
-        mat4 View = ViewMat4({0.0f, 2.0f, 5.0f}, {0.0f, 0.0f,  0.0f}, {0.0f, 1.0f,  0.0f});
-        mat4 Proj = PerspectiveProjMat4(ToRad(90), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
-        SetWorldMat4(Renderer->RenderContext, World);
-        SetViewMat4(Renderer->RenderContext, View);
-        SetProjectionMat4(Renderer->RenderContext, Proj);
         
         GlobalRunning = true;
         ShowWindow(Window->Window, nShowCmd);
@@ -310,28 +245,13 @@ int WINAPI WinMain(HINSTANCE Instance,
             float DeltaTime = ((float)DeltaCount / (float)Frequency.QuadPart);
 
             ProcesInputMessages();
-                
-            static float Time = 0;
-            World = TranslationMat4({0.0f, sinf(Time)*2.0f, 0.0f}) * RotationYMat(Time);
-            SetWorldMat4(Renderer->RenderContext, World);
-            Time += DeltaTime;
 
             // Render...
             float ClearColor[4] = {0.0f, 0.0f, 0.3f, 1.0f};
             Renderer->RenderContext->ClearRenderTargetView(Renderer->BackBuffer, ClearColor);
             
 
-            GameUpdateAndRender(&AppMemory);
-             
-            unsigned int Stride = sizeof(float)*8;
-            unsigned int Offset = 0;
-            Renderer->RenderContext->IASetInputLayout(InputLayout);
-            Renderer->RenderContext->IASetVertexBuffers(0, 1, &CubeBuffer, &Stride, &Offset);
-            Renderer->RenderContext->IASetIndexBuffer(CubeIndex, DXGI_FORMAT_R32_UINT, 0);
-            Renderer->RenderContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            Renderer->RenderContext->VSSetShader(VertexShader, 0, 0);
-            Renderer->RenderContext->PSSetShader(PixelShader,  0, 0);
-            Renderer->RenderContext->DrawIndexed(36, 0, 0);
+            GameUpdateAndRender(&AppMemory, DeltaTime);
 
             Renderer->SwapChain->Present(0, 0);
             

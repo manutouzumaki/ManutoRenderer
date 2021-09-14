@@ -14,10 +14,18 @@ struct renderer
     ID3D11RenderTargetView *BackBuffer;
 };
 
+struct shader
+{
+    ID3D11VertexShader *VertexShader;
+    ID3D11PixelShader *PixelShader;
+    ID3D11InputLayout *InputLayout;
+};
+
 struct mesh
 {
     ID3D11Buffer *VertexBuffer;
     ID3D11Buffer *IndexBuffer;
+    unsigned int IndexCount;
 };
 
 #endif

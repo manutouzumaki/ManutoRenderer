@@ -101,17 +101,6 @@ D3D11Initialize(HWND Window,
 
 }
 
-static renderer *
-CreateRenderer(window *Window, arena *Arena)
-{
-    renderer *Renderer = (renderer *)PushStruct(Arena, renderer);
-    D3D11Initialize(Window->Window, &Renderer->Device,
-                    &Renderer->RenderContext, &Renderer->SwapChain,
-                    &Renderer->BackBuffer, Window->Width, Window->Height);
-    return Renderer;
-}
-
-
 static ID3DBlob *
 D3D11CompileShader(char *FileName, char *MainFuncName, char *ShaderVersion, arena *Arena)
 {
@@ -184,7 +173,7 @@ D3D11CreatePixelShader(ID3D11Device *Device, char *FileName, char *MainFuncName,
 }
 
 static void 
-InitMa4ConstBuffer(ID3D11Device *Device)
+InitMa4ConstBuffer(renderer *Renderer)
 {
     // Create constant Buffers and  
     D3D11_BUFFER_DESC ConstantBufferDesc;
@@ -194,7 +183,7 @@ InitMa4ConstBuffer(ID3D11Device *Device)
     ConstantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     ConstantBufferDesc.MiscFlags = 0;
     ConstantBufferDesc.StructureByteStride = 0;
-    HRESULT Result = Device->CreateBuffer(&ConstantBufferDesc, 0, &GlobalMat4Buffer);
+    HRESULT Result = Renderer->Device->CreateBuffer(&ConstantBufferDesc, 0, &GlobalMat4Buffer);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("Mat4Buffer Created!\n");
@@ -211,27 +200,103 @@ InitMa4ConstBuffer(ID3D11Device *Device)
     } while(0);
 
 static void
-SetWorldMat4(ID3D11DeviceContext *RenderContext, mat4 World)
+SetWorldMat4(renderer *Renderer, mat4 World)
 {
     GlobalMat4ConstBuffer.World = World;
-    MapConstantBuffer(RenderContext, GlobalMat4ConstBuffer,
+    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
                       mat4_constant_buffer, GlobalMat4Buffer);
 }
 
 static void
-SetProjectionMat4(ID3D11DeviceContext *RenderContext, mat4 Projection)
+SetProjectionMat4(renderer *Renderer, mat4 Projection)
 {
     GlobalMat4ConstBuffer.Proj = Projection;
-    MapConstantBuffer(RenderContext, GlobalMat4ConstBuffer,
+    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
                       mat4_constant_buffer, GlobalMat4Buffer);
 }
 
 static void
-SetViewMat4(ID3D11DeviceContext *RenderContext, mat4 View)
+SetViewMat4(renderer *Renderer, mat4 View)
 {
     GlobalMat4ConstBuffer.View = View;
-    MapConstantBuffer(RenderContext, GlobalMat4ConstBuffer,
+    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
                       mat4_constant_buffer, GlobalMat4Buffer); 
+}
+
+static mesh *
+LoadCube(renderer *Renderer, arena *Arena)
+{
+    mesh *Mesh = (mesh *)PushStruct(Arena, mesh);
+    float Vertices[] = {
+        -1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+         1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+         1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+        -1.0f, 1.0f,  1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+
+        -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f,
+         1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, -1.0f, 0.0f,
+         1.0f, -1.0f,  1.0f, 1.0f, 1.0f, 0.0f, -1.0f, 0.0f,
+        -1.0f, -1.0f,  1.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f,
+        
+        -1.0f, -1.0f,  1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -1.0f, -1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -1.0f,  1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
+        -1.0f,  1.0f,  1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f,
+        
+        1.0f, -1.0f,  1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        1.0f,  1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
+        1.0f,  1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f,
+        
+        -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
+         1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f,
+         1.0f,  1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, -1.0f,
+        
+        -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+         1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+         1.0f,  1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+        -1.0f,  1.0f, 1.0f, 0.0f, 1.0f,  0.0f, 0.0f, 1.0f
+    };
+    unsigned int Indices[] =
+    {
+        3,1,0,2,1,3,
+        6,4,5,7,4,6,
+        11,9,8, 10,9, 11,
+        14, 12, 13, 15, 12, 14,
+        19, 17, 16, 18, 17, 19,
+        22, 20, 21, 23, 20, 22
+    };
+
+    D3D11_BUFFER_DESC VertexBufferDesc = {};
+    VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    VertexBufferDesc.ByteWidth = sizeof(float)*ArrayCount(Vertices);
+    // Add the Vertices
+    D3D11_SUBRESOURCE_DATA ResourceData = {};
+    ResourceData.pSysMem = Vertices;
+    // Create the Buffer
+    HRESULT Result = Renderer->Device->CreateBuffer(&VertexBufferDesc, &ResourceData, &Mesh->VertexBuffer);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("Vertex Buffer Created!\n");
+    }
+    // Create Index Buffer
+    Mesh->IndexCount = ArrayCount(Indices);
+    D3D11_BUFFER_DESC IndexBufferDesc = {};
+    IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    IndexBufferDesc.ByteWidth = sizeof( int )*ArrayCount(Indices);
+    IndexBufferDesc.CPUAccessFlags = 0;
+    ResourceData.pSysMem = Indices;
+
+    Result = Renderer->Device->CreateBuffer(&IndexBufferDesc, &ResourceData, &Mesh->IndexBuffer);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("Index Buffer Created!\n");
+    }
+    
+    return Mesh;
 }
 
 static mesh *
@@ -268,5 +333,19 @@ LoadMesh(char *OBJFileName, char *TextureFileName, renderer *Renderer, arena *Ar
     }
 
     return Mesh;
+}
+
+static void
+RenderMesh(mesh *Mesh, shader *Shader, renderer *Renderer)
+{
+    unsigned int Stride = sizeof(float)*8;
+    unsigned int Offset = 0;
+    Renderer->RenderContext->IASetInputLayout(Shader->InputLayout);
+    Renderer->RenderContext->IASetVertexBuffers(0, 1, &Mesh->VertexBuffer, &Stride, &Offset);
+    Renderer->RenderContext->IASetIndexBuffer(Mesh->IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+    Renderer->RenderContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Renderer->RenderContext->VSSetShader(Shader->VertexShader, 0, 0);
+    Renderer->RenderContext->PSSetShader(Shader->PixelShader,  0, 0);
+    Renderer->RenderContext->DrawIndexed(Mesh->IndexCount, 0, 0);
 }
 
