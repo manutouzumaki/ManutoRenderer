@@ -302,7 +302,7 @@ LoadCube(renderer *Renderer, arena *Arena)
 static mesh *
 LoadMesh(char *OBJFileName, char *TextureFileName, renderer *Renderer, arena *Arena)
 {
-    obj OBJ = {};//LoadOBJFile(OBJFileName, TextureFileName, Arena);
+    obj OBJ = {};//LoadOBJFile(OBJFileName, Arena);
     mesh *Mesh = (mesh *)PushStruct(Arena, mesh);
 
     D3D11_BUFFER_DESC VertexBufferDesc = {};

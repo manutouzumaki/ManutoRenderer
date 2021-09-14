@@ -17,7 +17,9 @@ struct game_state
 {
     window *Window;
     renderer *Renderer;
+
     arena RenderArena;
+    arena FileArena;
 
     shader *Shader;
     mesh *Cube;

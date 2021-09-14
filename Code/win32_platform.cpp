@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <string.h>
 
 #define Assert(condition) if(!(condition)) { *(unsigned int *)0 = 0; } 
 #define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
@@ -29,6 +30,7 @@ StringLength(char * String)
 #include "bitmap.h"
 #include "bitmap.cpp"
 #include "mesh.h"
+#include "mesh.cpp"
 #include "main.h"
 
 struct window
@@ -92,21 +94,6 @@ ProcesInputMessages()
             }break;
         }
     }
-}
-
-void PrintMat4(mat4 M)
-{
-    for(int Y = 0; Y < 4; Y++)
-    {
-        for(int X = 0; X < 4; X++)
-        {
-            char Buffer[64];
-            sprintf(Buffer, "%f ", M.m[Y][X]);
-            OutputDebugString(Buffer);
-        }
-        OutputDebugString("\n");
-    }
- 
 }
 
 static window *
@@ -193,11 +180,6 @@ int WINAPI WinMain(HINSTANCE Instance,
     AppMemory.Size = Megabytes(256);
     AppMemory.Memory = VirtualAlloc(0, AppMemory.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);    
     GameSetUp(&AppMemory);
-
-    // Create the Arenas to Orginize the Memory of the Application
-    arena FileArena = {};
-    InitArena(&AppMemory, &FileArena, Megabytes(20));
-
 
     window *Window = GetWindow(&AppMemory);
     renderer *Renderer = GetRenderer(&AppMemory);

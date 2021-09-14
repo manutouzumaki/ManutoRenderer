@@ -4,6 +4,7 @@ GameSetUp(app_memory *Memory)
     game_state *GameState = (game_state *)Memory->Memory;
     Memory->Use = sizeof(game_state);
 
+    InitArena(Memory, &GameState->FileArena,   Megabytes(40));
     InitArena(Memory, &GameState->RenderArena, Megabytes(20)); 
     
     GameState->Window = PlatformCreateWindow("Renderer", WND_WIDTH, WND_HEIGHT, &GameState->RenderArena);
@@ -17,7 +18,7 @@ GameSetUp(app_memory *Memory)
             GameState->Shader = PlatformCreateShadersFromFile(GameState->Renderer,
                                                               "../Code/main_vertex_shader.hlsl", "VS_Main",
                                                               "../Code/main_pixel_shader.hlsl", "PS_Main",
-                                                              &GameState->RenderArena);
+                                                              &GameState->FileArena);
             GameState->Cube = LoadCube(GameState->Renderer, &GameState->RenderArena);
 
             mat4 World = IdentityMat4();
@@ -26,6 +27,10 @@ GameSetUp(app_memory *Memory)
             SetWorldMat4(GameState->Renderer, World);
             SetViewMat4(GameState->Renderer, View);
             SetProjectionMat4(GameState->Renderer, Proj);
+
+
+            // OBJ file Test...
+            obj House = LoadOBJFile("../Data/cube.obj", &GameState->FileArena);
         }
     }   
 }
