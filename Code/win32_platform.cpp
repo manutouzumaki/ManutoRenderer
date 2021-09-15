@@ -1,6 +1,5 @@
 #include <windows.h>
 #include <stdio.h>
-#include <string.h>
 
 #define Assert(condition) if(!(condition)) { *(unsigned int *)0 = 0; } 
 #define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
@@ -16,6 +15,22 @@ StringLength(char * String)
     return Count;
 }
 
+static bool
+StringCompare(char *A, char *B, int Size)
+{
+    bool Result = true;
+    for(int Index = 0;
+        Index < Size;
+        ++Index)
+    {
+        if(*A++ != *B++)
+        {
+            Result = false;
+        } 
+    }
+    return Result;
+}
+
 #define Kilobytes(Value) ((Value)*1024LL)
 #define Megabytes(Value) (Kilobytes(Value)*1024LL)
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)
@@ -26,12 +41,13 @@ StringLength(char * String)
 
 #include "math.h"
 #include "arena.h"
-#include "arena.cpp"
 #include "bitmap.h"
-#include "bitmap.cpp"
 #include "mesh.h"
-#include "mesh.cpp"
 #include "main.h"
+
+#include "arena.cpp"
+#include "bitmap.cpp"
+#include "mesh.cpp"
 
 struct window
 {
@@ -135,7 +151,8 @@ PlatformCreateRenderer(window *Window, arena *Arena)
     renderer *Renderer = (renderer *)PushStruct(Arena, renderer);
     D3D11Initialize(Window->Window, &Renderer->Device,
                     &Renderer->RenderContext, &Renderer->SwapChain,
-                    &Renderer->BackBuffer, Window->Width, Window->Height);
+                    &Renderer->BackBuffer, &Renderer->DepthStencilView,
+                    Window->Width, Window->Height);
     InitMa4ConstBuffer(Renderer);
     return Renderer;
 }
@@ -168,6 +185,20 @@ PlatformCreateShadersFromFile(renderer *Renderer,
 
 }
 
+static void*
+PlatformAllocMemory(SIZE_T Size)
+{
+    void *Result = NULL; 
+    Result = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    return Result;    
+}
+
+static void 
+PlatformFreeMemory(void *Memory)
+{
+    VirtualFree(Memory, 0, MEM_RELEASE);
+}
+
 int WINAPI WinMain(HINSTANCE Instance,
                    HINSTANCE PrevInstance,
                    LPSTR     lpCmdLine,
@@ -188,7 +219,7 @@ int WINAPI WinMain(HINSTANCE Instance,
         LARGE_INTEGER Frequency = {};
         QueryPerformanceFrequency(&Frequency);
         bool SleepIsGranular = (timeBeginPeriod(1) == TIMERR_NOERROR);
-        float FPS = 60.0f;
+        float FPS = 30.0f;
         float TARGET_SECONDS_FRAME = (1.0f / FPS);
 
         RECT ClientDimensions = {};
@@ -231,7 +262,7 @@ int WINAPI WinMain(HINSTANCE Instance,
             // Render...
             float ClearColor[4] = {0.0f, 0.0f, 0.3f, 1.0f};
             Renderer->RenderContext->ClearRenderTargetView(Renderer->BackBuffer, ClearColor);
-            
+            Renderer->RenderContext->ClearDepthStencilView(Renderer->DepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 
             GameUpdateAndRender(&AppMemory, DeltaTime);
 
@@ -240,6 +271,7 @@ int WINAPI WinMain(HINSTANCE Instance,
             LastCount = ActualCount;
 
         }
+        if(Renderer->DepthStencilView) Renderer->DepthStencilView->Release();
         if(Renderer->BackBuffer) Renderer->BackBuffer->Release();
         if(Renderer->SwapChain) Renderer->SwapChain->Release();
         if(Renderer->RenderContext) Renderer->RenderContext->Release(); 

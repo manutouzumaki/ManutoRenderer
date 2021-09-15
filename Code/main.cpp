@@ -19,18 +19,18 @@ GameSetUp(app_memory *Memory)
                                                               "../Code/main_vertex_shader.hlsl", "VS_Main",
                                                               "../Code/main_pixel_shader.hlsl", "PS_Main",
                                                               &GameState->FileArena);
-            GameState->Cube = LoadCube(GameState->Renderer, &GameState->RenderArena);
-
+            GameState->Cube = LoadMesh("../Data/monkey.obj", GameState->Renderer, &GameState->FileArena);
+            //GameState->Cube = LoadCube(GameState->Renderer, &GameState->RenderArena);
             mat4 World = IdentityMat4();
-            mat4 View = ViewMat4({0.0f, 2.0f, 5.0f}, {0.0f, 0.0f,  0.0f}, {0.0f, 1.0f,  0.0f});
-            mat4 Proj = PerspectiveProjMat4(ToRad(90), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
+            mat4 View = ViewMat4({0.0f, 3.0f, 5.0f}, {0.0f, 0.0f,  0.0f}, {0.0f, 1.0f,  0.0f});
+            mat4 Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
             SetWorldMat4(GameState->Renderer, World);
             SetViewMat4(GameState->Renderer, View);
             SetProjectionMat4(GameState->Renderer, Proj);
 
 
             // OBJ file Test...
-            obj House = LoadOBJFile("../Data/cube.obj", &GameState->FileArena);
+            //obj House = LoadOBJFile("../Data/cube.obj", &GameState->FileArena);
         }
     }   
 }

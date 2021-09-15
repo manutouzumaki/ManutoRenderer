@@ -7,8 +7,8 @@ struct mesh;
 struct obj
 {
     float *Vertices;
-    unsigned int VerticesCout;
-    unsigned int *Indices;
+    unsigned int VerticesCount;
+    int *Indices;
     unsigned int IndicesCount;
 };
    

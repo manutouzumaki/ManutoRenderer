@@ -7,6 +7,7 @@ D3D11Initialize(HWND Window,
                 ID3D11DeviceContext **RenderContext,
                 IDXGISwapChain **SwapChain,
                 ID3D11RenderTargetView **BackBuffer,
+                ID3D11DepthStencilView **DepthStencilView,
                 unsigned int WindowWidth,
                 unsigned int WindowHeight)
 {
@@ -70,7 +71,34 @@ D3D11Initialize(HWND Window,
         BackBufferTexture->Release();
     }
 
-    (*RenderContext)->OMSetRenderTargets(1, BackBuffer, 0);
+    ID3D11Texture2D* DepthTexture = 0;
+    D3D11_TEXTURE2D_DESC DepthTexDesc = {};
+    DepthTexDesc.Width = WindowWidth;
+    DepthTexDesc.Height = WindowHeight;
+    DepthTexDesc.MipLevels = 1;
+    DepthTexDesc.ArraySize = 1;
+    DepthTexDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    DepthTexDesc.SampleDesc.Count = 1;
+    DepthTexDesc.SampleDesc.Quality = 0;
+    DepthTexDesc.Usage = D3D11_USAGE_DEFAULT;
+    DepthTexDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    DepthTexDesc.CPUAccessFlags = 0;
+    DepthTexDesc.MiscFlags = 0; 
+    
+    Result = (*Device)->CreateTexture2D(&DepthTexDesc, NULL, &DepthTexture);
+    // create the depth stencil view
+    D3D11_DEPTH_STENCIL_VIEW_DESC DescDSV = {};
+    DescDSV.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    DescDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    DescDSV.Texture2D.MipSlice = 0;
+
+    Result = (*Device)->CreateDepthStencilView(DepthTexture, &DescDSV, DepthStencilView);
+    if(DepthTexture)
+    {
+        DepthTexture->Release();
+    }
+    
+    (*RenderContext)->OMSetRenderTargets(1, BackBuffer, *DepthStencilView);
 
     // -4: Set the viewport.
     D3D11_VIEWPORT Viewport;
@@ -81,7 +109,7 @@ D3D11Initialize(HWND Window,
     Viewport.TopLeftX = 0.0f;
     Viewport.TopLeftY = 0.0f;
     (*RenderContext)->RSSetViewports(1, &Viewport);
-   
+  
     // Turn on Alpha blending
     ID3D11BlendState* AlphaBlend = 0;
     D3D11_BLEND_DESC BlendStateDesc = {};
@@ -300,15 +328,16 @@ LoadCube(renderer *Renderer, arena *Arena)
 }
 
 static mesh *
-LoadMesh(char *OBJFileName, char *TextureFileName, renderer *Renderer, arena *Arena)
+LoadMesh(char *OBJFileName, renderer *Renderer, arena *Arena)
 {
-    obj OBJ = {};//LoadOBJFile(OBJFileName, Arena);
     mesh *Mesh = (mesh *)PushStruct(Arena, mesh);
+    obj OBJ = LoadOBJFile(OBJFileName, Arena);
 
+    Mesh->VertexCount = OBJ.VerticesCount;
     D3D11_BUFFER_DESC VertexBufferDesc = {};
     VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
     VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    VertexBufferDesc.ByteWidth = sizeof(float)*OBJ.VerticesCout;
+    VertexBufferDesc.ByteWidth = sizeof(float)*OBJ.VerticesCount;
     // Add the Vertices
     D3D11_SUBRESOURCE_DATA ResourceData = {};
     ResourceData.pSysMem = OBJ.Vertices;
@@ -318,7 +347,9 @@ LoadMesh(char *OBJFileName, char *TextureFileName, renderer *Renderer, arena *Ar
     {
         OutputDebugString("Vertex Buffer Created!\n");
     }
+    /*
     // Create Index Buffer
+    Mesh->IndexCount = OBJ.IndicesCount;
     D3D11_BUFFER_DESC IndexBufferDesc = {};
     IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
     IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
@@ -331,12 +362,26 @@ LoadMesh(char *OBJFileName, char *TextureFileName, renderer *Renderer, arena *Ar
     {
         OutputDebugString("Index Buffer Created!\n");
     }
-
+    */
     return Mesh;
 }
 
 static void
 RenderMesh(mesh *Mesh, shader *Shader, renderer *Renderer)
+{
+    unsigned int Stride = sizeof(float)*8;
+    unsigned int Offset = 0;
+    Renderer->RenderContext->IASetInputLayout(Shader->InputLayout);
+    Renderer->RenderContext->IASetVertexBuffers(0, 1, &Mesh->VertexBuffer, &Stride, &Offset);
+    Renderer->RenderContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Renderer->RenderContext->VSSetShader(Shader->VertexShader, 0, 0);
+    Renderer->RenderContext->PSSetShader(Shader->PixelShader,  0, 0);
+    Renderer->RenderContext->Draw(Mesh->VertexCount/8, 0);
+}
+
+
+static void
+RenderMeshIndexed(mesh *Mesh, shader *Shader, renderer *Renderer)
 {
     unsigned int Stride = sizeof(float)*8;
     unsigned int Offset = 0;

@@ -12,6 +12,7 @@ struct renderer
     ID3D11DeviceContext *RenderContext;
     IDXGISwapChain *SwapChain;
     ID3D11RenderTargetView *BackBuffer;
+    ID3D11DepthStencilView* DepthStencilView;
 };
 
 struct shader
@@ -24,6 +25,7 @@ struct shader
 struct mesh
 {
     ID3D11Buffer *VertexBuffer;
+    unsigned int VertexCount;
     ID3D11Buffer *IndexBuffer;
     unsigned int IndexCount;
 };

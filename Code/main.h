@@ -13,6 +13,9 @@ shader *PlatformCreateShadersFromFile(renderer *Renderer,
                                       char * VertexShaderFileName, char *VSMainFunc,
                                       char *PixelShaderFileName, char *PSMainFunc,
                                       arena *Arena);
+void* PlatformAllocMemory(SIZE_T Size);
+void PlatformFreeMemory(void *Memory);
+
 struct game_state
 {
     window *Window;

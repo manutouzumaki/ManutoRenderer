@@ -2,7 +2,7 @@ static obj
 LoadOBJFile(char *OBJFileName, arena *Arena)
 {
     obj Result = {};
-    void* OBJFile = ReadEntireFile(OBJFileName, NULL, Arena);
+    void* OBJFile = ReadEntireFile(OBJFileName, NULL);
     if(!OBJFile)
     {
         OutputDebugString("ERROR::LOADING::OBJ\n");
@@ -10,19 +10,30 @@ LoadOBJFile(char *OBJFileName, arena *Arena)
     }
     
     int VerticesCount = 0; 
+    int TextureCoordsCount = 0;
+    int NormalsCount = 0;
+    int IndexCount = 0;
 
-    // loop the file by line
+    // first we loop through the entire file and get the size of the mesh
     char *Line = (char *)OBJFile;
     while(*Line != '\0')
-    {
-        
-         
-        if(strncmp(Line, "v ", 2) == 0)
+    { 
+        if(StringCompare(Line, "v ", 2))
         {
             ++VerticesCount;
-        } 
-        
-        
+        }
+        if(StringCompare(Line, "vt ", 3))
+        {
+            ++TextureCoordsCount; 
+        }
+        if(StringCompare(Line, "vn ", 3))
+        {
+            ++NormalsCount;
+        }
+        if(StringCompare(Line, "f ", 2))
+        {
+            ++IndexCount;
+        }    
         
         int Counter = 0;
         char *Letter = Line;
@@ -33,219 +44,113 @@ LoadOBJFile(char *OBJFileName, arena *Arena)
         }
         Line += Counter + 1;
     }
-    int StopHere = 0;
+    
+    // get the memory
+    float *TempVertices = (float *)PlatformAllocMemory((VerticesCount*3)*sizeof(float));
+    float *TempTextureCoords = (float *)PlatformAllocMemory((TextureCoordsCount*2)*sizeof(float));
+    float *TempNormals = (float *)PlatformAllocMemory((NormalsCount*3)*sizeof(float));
+    int *TempVIndex = (int *)PlatformAllocMemory((IndexCount*3)*sizeof(int));
+    int *TempTIndex = (int *)PlatformAllocMemory((IndexCount*3)*sizeof(int));
+    int *TempNIndex = (int *)PlatformAllocMemory((IndexCount*3)*sizeof(int));
+    
+    // second loop through the file to ge the values 
+    float *VerticesPtr = TempVertices;
+    float *TextureCoordsPtr = TempTextureCoords;
+    float *NormalsPtr = TempNormals;
+    int *VIndexPtr = TempVIndex;
+    int *TIndexPtr = TempTIndex;
+    int *NIndexPtr = TempNIndex;
+    Line = (char *)OBJFile;
+    while(*Line != '\0')
+    {   
+        if(StringCompare(Line, "v ", 2))
+        {
+            float X, Y, Z;
+            sscanf(Line, "v %f %f %f", &X, &Y, &Z);
+            *VerticesPtr++ = X;
+            *VerticesPtr++ = Y;
+            *VerticesPtr++ = Z;
+        }
+        if(StringCompare(Line, "vt ", 3))
+        {
+            float U, V;
+            sscanf(Line, "vt %f %f", &U, &V);
+            *TextureCoordsPtr++ = U;
+            *TextureCoordsPtr++ = V;
+        }
+        if(StringCompare(Line, "vn ", 3))
+        {
+            float X, Y, Z;
+            sscanf(Line, "vn %f %f %f", &X, &Y, &Z);
+            *NormalsPtr++ = X;
+            *NormalsPtr++ = Y;
+            *NormalsPtr++ = Z;
+        }
+        if(StringCompare(Line, "f ", 2))
+        {
+            int VIndex[3];
+            int TIndex[3];
+            int NIndex[3];
+            sscanf(Line, "f %d/%d/%d %d/%d/%d %d/%d/%d",
+                   &VIndex[0], &TIndex[0], &NIndex[0],
+                   &VIndex[1], &TIndex[1], &NIndex[1],
+                   &VIndex[2], &TIndex[2], &NIndex[2]);
+            *VIndexPtr++ = VIndex[0] - 1;
+            *VIndexPtr++ = VIndex[1] - 1;
+            *VIndexPtr++ = VIndex[2] - 1;
+            *TIndexPtr++ = TIndex[0] - 1;
+            *TIndexPtr++ = TIndex[1] - 1;
+            *TIndexPtr++ = TIndex[2] - 1;
+            *NIndexPtr++ = NIndex[0] - 1;
+            *NIndexPtr++ = NIndex[1] - 1;
+            *NIndexPtr++ = NIndex[2] - 1;
+        }  
+
+        int Counter = 0;
+        char *Letter = Line;
+        while(*Letter != '\n')
+        {
+            ++Counter;
+            ++Letter;
+        }
+        Line += Counter + 1;
+    }
+
+    // this is store in the permanent storage of the program  
+    Result.Vertices = (float *)PushArray(Arena, (3*8*IndexCount), float);
+    float *VertexBufferPtr = Result.Vertices;
+    VIndexPtr = TempVIndex;
+    TIndexPtr = TempTIndex;
+    NIndexPtr = TempNIndex;
+    for(int Index = 0;
+        Index < 3*IndexCount;
+        ++Index)
+    {
+        int VIndex = *VIndexPtr * 3;
+        *VertexBufferPtr++ = TempVertices[VIndex + 0];
+        *VertexBufferPtr++ = TempVertices[VIndex + 1];
+        *VertexBufferPtr++ = TempVertices[VIndex + 2];
+        ++VIndexPtr;
+        int TIndex = *TIndexPtr * 2;
+        *VertexBufferPtr++ = TempTextureCoords[TIndex + 0];
+        *VertexBufferPtr++ = TempTextureCoords[TIndex + 1];
+        ++TIndexPtr;
+        int NIndex = *NIndexPtr * 3;
+        *VertexBufferPtr++ = TempNormals[NIndex + 0];
+        *VertexBufferPtr++ = TempNormals[NIndex + 1];
+        *VertexBufferPtr++ = TempNormals[NIndex + 2];
+        ++NIndexPtr;
+    }
+    
+    Result.VerticesCount = 3*8*IndexCount;
+
+    PlatformFreeMemory(TempVertices);
+    PlatformFreeMemory(TempTextureCoords);
+    PlatformFreeMemory(TempNormals);
+    PlatformFreeMemory(TempVIndex);
+    PlatformFreeMemory(TempTIndex);
+    PlatformFreeMemory(TempNIndex);
+    PlatformFreeMemory(OBJFile);
+
     return Result;
 }
-
-/*
-void LoadOBJFileIndex(Mesh* mesh, const char* filePhat, const char* texFileName)
-{
-    mesh->numVertices  = 0;
-    mesh->numIndex     = 0;
-    mesh->numTexCoords = 0;
-    mesh->numNormals   = 0;
-
-    FILE* file;
-    file = fopen(filePhat, "r");
-
-    if(file == NULL)
-    {
-        OutputDebugString("ERROR::LOADING::OBJ::FILE\n");
-    }
-    char line[1024];
-
-    while(fgets(line, 1024, file) != NULL)
-    {    
-        // first we have to count the size 
-        // becouse we need to allocate memory for
-        // the obj object 
-        if(strncmp(line, "v ", 2) == 0)
-        {
-            mesh->numVertices++;
-        }
-        if(strncmp(line, "vt ", 3) == 0)
-        {
-            mesh->numTexCoords++;
-        }
-        if(strncmp(line, "vn ", 3) == 0)
-        {
-            mesh->numNormals++;
-        }
-        if(strncmp(line, "f ", 2) == 0)
-        {
-            mesh->numIndex++;
-        }
-    } 
-    // we allocate memory for the model 
-    mesh->vertices      = (Vec3*)malloc(mesh->numVertices  * sizeof(Vec3));
-    mesh->textureCoords = (Vec2*)malloc(mesh->numTexCoords * sizeof(Vec2));
-    mesh->normals       = (Vec3*)malloc(mesh->numNormals   * sizeof(Vec3));
-    mesh->vertexBuffer  = (VertexBuffer*)malloc((mesh->numIndex * 3) * sizeof(VertexBuffer));
-    mesh->fVertexBuffer = (VertexBuffer*)malloc(mesh->numVertices * sizeof(VertexBuffer));
-    mesh->vertexIndex   = (IndexBuffer*)malloc(mesh->numIndex * sizeof(IndexBuffer));
-    mesh->textureIndex  = (IndexBuffer* )malloc(mesh->numIndex * sizeof(IndexBuffer));
-    mesh->normalIndex   = (IndexBuffer*)malloc(mesh->numIndex * sizeof(IndexBuffer));
-    mesh->indices       = (int*)malloc((mesh->numIndex * 3) * sizeof(int));
-    
-    Vec3 test;
-    rewind(file);
-    int vertexIndex = 0;
-    int textIndex = 0;
-    int normalIndex = 0;
-    int indexIndex = 0;
-    while(fgets(line, 1024, file) != NULL)
-    {     
-        if(strncmp(line, "v ", 2) == 0)
-        {
-            float x, y, z;
-            sscanf(line, "v %f %f %f", &x, &y, &z);
-            mesh->vertices[vertexIndex].x = x;
-            mesh->vertices[vertexIndex].y = y;
-            mesh->vertices[vertexIndex].z = z; 
-            vertexIndex++;
-        }
-        if(strncmp(line, "vt ", 3) == 0)
-        {
-            float x, y;
-            sscanf(line, "vt %f %f", &x, &y);
-            mesh->textureCoords[textIndex].x = x;
-            mesh->textureCoords[textIndex].y = y;
-            textIndex++;
-        }
-        if(strncmp(line, "vn ", 3) == 0)
-        {
-            float x, y, z;
-            sscanf(line, "vn %f %f %f", &x, &y, &z);
-            mesh->normals[normalIndex].x = x;
-            mesh->normals[normalIndex].y = y;
-            mesh->normals[normalIndex].z = z;
-            normalIndex++;
-        }
-        if(strncmp(line, "f ", 2) == 0)
-        {
-            int indices[3];
-            int textures[3];
-            int normals[3];
-            sscanf(line, "f %d/%d/%d %d/%d/%d %d/%d/%d",
-                &indices[0], &textures[0], &normals[0],
-                &indices[1], &textures[1], &normals[1],
-                &indices[2], &textures[2], &normals[2]);
-
-            mesh->vertexIndex[indexIndex].a = indices[0];
-            mesh->vertexIndex[indexIndex].b = indices[1];
-            mesh->vertexIndex[indexIndex].c = indices[2];
-
-            mesh->textureIndex[indexIndex].a = textures[0];
-            mesh->textureIndex[indexIndex].b = textures[1];
-            mesh->textureIndex[indexIndex].c = textures[2];
-
-            mesh->normalIndex[indexIndex].a = normals[0];
-            mesh->normalIndex[indexIndex].b = normals[1];
-            mesh->normalIndex[indexIndex].c = normals[2];
-            indexIndex++;
-        }
-    }
-    
-    // with all the obj info we have to fill the vertex and index buffer
-    int indexCounter = 0;
-    for(int i = 0; i < (mesh->numIndex * 3); i += 3)
-    {
-        // vertice
-        mesh->vertexBuffer[i].vertice.x = mesh->vertices[mesh->vertexIndex[indexCounter].a - 1].x;
-        mesh->vertexBuffer[i].vertice.y = mesh->vertices[mesh->vertexIndex[indexCounter].a - 1].y;
-        mesh->vertexBuffer[i].vertice.z = mesh->vertices[mesh->vertexIndex[indexCounter].a - 1].z;
-        mesh->vertexBuffer[i + 1].vertice.x = mesh->vertices[mesh->vertexIndex[indexCounter].b - 1].x;
-        mesh->vertexBuffer[i + 1].vertice.y = mesh->vertices[mesh->vertexIndex[indexCounter].b - 1].y;
-        mesh->vertexBuffer[i + 1].vertice.z = mesh->vertices[mesh->vertexIndex[indexCounter].b - 1].z;
-        mesh->vertexBuffer[i + 2].vertice.x = mesh->vertices[mesh->vertexIndex[indexCounter].c - 1].x;
-        mesh->vertexBuffer[i + 2].vertice.y = mesh->vertices[mesh->vertexIndex[indexCounter].c - 1].y;
-        mesh->vertexBuffer[i + 2].vertice.z = mesh->vertices[mesh->vertexIndex[indexCounter].c - 1].z;
-        // texture Coords
-        mesh->vertexBuffer[i].textureCoord.x = mesh->textureCoords[mesh->textureIndex[indexCounter].a - 1].x;
-        mesh->vertexBuffer[i].textureCoord.y = mesh->textureCoords[mesh->textureIndex[indexCounter].a - 1].y;
-        mesh->vertexBuffer[i + 1].textureCoord.x = mesh->textureCoords[mesh->textureIndex[indexCounter].b - 1].x;
-        mesh->vertexBuffer[i + 1].textureCoord.y = mesh->textureCoords[mesh->textureIndex[indexCounter].b - 1].y;
-        mesh->vertexBuffer[i + 2].textureCoord.x = mesh->textureCoords[mesh->textureIndex[indexCounter].c - 1].x;
-        mesh->vertexBuffer[i + 2].textureCoord.y = mesh->textureCoords[mesh->textureIndex[indexCounter].c - 1].y;
-        // normals
-        mesh->vertexBuffer[i].normal.x = mesh->normals[mesh->normalIndex[indexCounter].a - 1].x;
-        mesh->vertexBuffer[i].normal.y = mesh->normals[mesh->normalIndex[indexCounter].a - 1].y;
-        mesh->vertexBuffer[i].normal.z = mesh->normals[mesh->normalIndex[indexCounter].a - 1].z;
-        mesh->vertexBuffer[i + 1].normal.x = mesh->normals[mesh->normalIndex[indexCounter].b - 1].x;
-        mesh->vertexBuffer[i + 1].normal.y = mesh->normals[mesh->normalIndex[indexCounter].b - 1].y;
-        mesh->vertexBuffer[i + 1].normal.z = mesh->normals[mesh->normalIndex[indexCounter].b - 1].z;
-        mesh->vertexBuffer[i + 2].normal.x = mesh->normals[mesh->normalIndex[indexCounter].c - 1].x;
-        mesh->vertexBuffer[i + 2].normal.y = mesh->normals[mesh->normalIndex[indexCounter].c - 1].y;
-        mesh->vertexBuffer[i + 2].normal.z = mesh->normals[mesh->normalIndex[indexCounter].c - 1].z;
-        indexCounter++;
-    }
-
-    for(int i = 0; i < mesh->numIndex; i++)
-    {
-        int index = i * 3;
-        mesh->indices[index + 0] = mesh->vertexIndex[i].a - 1;
-        mesh->indices[index + 1] = mesh->vertexIndex[i].b - 1;
-        mesh->indices[index + 2] = mesh->vertexIndex[i].c - 1;
-    }
-
-    for(int i = 0; i < mesh->numIndex * 3; i++)
-    {
-        mesh->fVertexBuffer[mesh->indices[i]] = mesh->vertexBuffer[i];
-    }
-
-    glGenVertexArrays(1, &mesh->vao);
-    glBindVertexArray(mesh->vao);
-    
-    uint32_t verticesVBO;
-    glGenBuffers(1, &verticesVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, verticesVBO);
-    glBufferData(GL_ARRAY_BUFFER, mesh->numVertices*sizeof(VertexBuffer), mesh->fVertexBuffer, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexBuffer), (void*)0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexBuffer), (void*)(3 * sizeof(float)));
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexBuffer), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-
-    uint32_t EBO;
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, (mesh->numIndex * 3) * sizeof(int), mesh->indices, GL_STATIC_DRAW);
-
-    free(mesh->vertices); 
-    free(mesh->textureCoords);
-    free(mesh->normals); 
-    free(mesh->vertexBuffer);
-    free(mesh->vertexIndex);
-    free(mesh->textureIndex);
-    free(mesh->normalIndex);
-    free(mesh->fVertexBuffer);
-    free(mesh->indices);
- 
-    uint32_t texture1;
-    glGenTextures(1, &texture1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
-    mesh->texId = texture1;
-    // test loadd bmp file:
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    mesh->tex = LoadBMP(texFileName);
-
-    if(mesh->tex.pixels != NULL)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mesh->tex.width, mesh->tex.height,
-                                    0, GL_BGRA, GL_UNSIGNED_BYTE, mesh->tex.pixels);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        OutputDebugString("ERROR::LOADING::BMP::FILE\n");
-    }
-    free(mesh->tex.pixels);
-
-    mesh->model = get_identity_matrix();
-}
-*/
