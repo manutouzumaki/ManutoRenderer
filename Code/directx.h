@@ -30,4 +30,17 @@ struct mesh
     unsigned int IndexCount;
 };
 
+struct mat4_constant_buffer
+{
+    mat4 World;
+    mat4 Proj;
+    mat4 View;
+};
+
+struct texture
+{
+    ID3D11ShaderResourceView *ColorMap;
+    ID3D11SamplerState *ColorMapSampler;
+};
+
 #endif

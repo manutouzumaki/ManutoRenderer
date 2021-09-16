@@ -33,7 +33,7 @@ D3D11Initialize(HWND Window,
     SwapChainDesc.BufferCount = 1;
     SwapChainDesc.BufferDesc.Width = WindowWidth;
     SwapChainDesc.BufferDesc.Height = WindowHeight;
-    SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    SwapChainDesc.BufferDesc.Format = /*DXGI_FORMAT_R8G8B8A8_UNORM;*/ DXGI_FORMAT_B8G8R8A8_UNORM;
     SwapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
     SwapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
     SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -100,16 +100,6 @@ D3D11Initialize(HWND Window,
     
     (*RenderContext)->OMSetRenderTargets(1, BackBuffer, *DepthStencilView);
 
-    // -4: Set the viewport.
-    D3D11_VIEWPORT Viewport;
-    Viewport.Width  = (float)WindowWidth;
-    Viewport.Height = (float)WindowHeight;
-    Viewport.MinDepth = 0.0f;
-    Viewport.MaxDepth = 1.0f;
-    Viewport.TopLeftX = 0.0f;
-    Viewport.TopLeftY = 0.0f;
-    (*RenderContext)->RSSetViewports(1, &Viewport);
-  
     // Turn on Alpha blending
     ID3D11BlendState* AlphaBlend = 0;
     D3D11_BLEND_DESC BlendStateDesc = {};
@@ -126,7 +116,15 @@ D3D11Initialize(HWND Window,
 
     (*RenderContext)->OMSetBlendState(AlphaBlend, 0, 0xffffffff);
 
-
+    // -4: Set the viewport.
+    D3D11_VIEWPORT Viewport;
+    Viewport.Width  = (float)WindowWidth;
+    Viewport.Height = (float)WindowHeight;
+    Viewport.MinDepth = 0.0f;
+    Viewport.MaxDepth = 1.0f;
+    Viewport.TopLeftX = 0.0f;
+    Viewport.TopLeftY = 0.0f;
+    (*RenderContext)->RSSetViewports(1, &Viewport);
 }
 
 static ID3DBlob *
@@ -347,23 +345,72 @@ LoadMesh(char *OBJFileName, renderer *Renderer, arena *Arena)
     {
         OutputDebugString("Vertex Buffer Created!\n");
     }
-    /*
-    // Create Index Buffer
-    Mesh->IndexCount = OBJ.IndicesCount;
-    D3D11_BUFFER_DESC IndexBufferDesc = {};
-    IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    IndexBufferDesc.ByteWidth = sizeof( int )*OBJ.IndicesCount;
-    IndexBufferDesc.CPUAccessFlags = 0;
-    ResourceData.pSysMem = OBJ.Indices;
+    return Mesh;
+}
 
-    Result = Renderer->Device->CreateBuffer(&IndexBufferDesc, &ResourceData, &Mesh->IndexBuffer);
+static texture *
+LoadTexture(char *TextureFileName, renderer *Renderer, arena *Arena)
+{
+    texture *Texture = (texture *)PushStruct(Arena, texture);
+    bit_map Bitmap = LoadBMP(TextureFileName, Arena);
+
+    D3D11_SUBRESOURCE_DATA Data = {};
+    Data.pSysMem = (void *)Bitmap.Pixels;
+    Data.SysMemPitch = Bitmap.Width*sizeof(unsigned int);
+    Data.SysMemSlicePitch = 0;
+
+    D3D11_TEXTURE2D_DESC TextureDesc = {}; 
+    TextureDesc.Width = Bitmap.Width;
+    TextureDesc.Height = Bitmap.Height;
+    TextureDesc.MipLevels = 1;
+    TextureDesc.ArraySize = 1;
+    TextureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;//DXGI_FORMAT_R8G8B8A8_UNORM;
+    TextureDesc.SampleDesc.Count = 1;
+    TextureDesc.SampleDesc.Quality = 0;
+    TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    TextureDesc.CPUAccessFlags = 0;
+    TextureDesc.MiscFlags = 0;
+
+    ID3D11Texture2D *TempTexture;
+    HRESULT Result = Renderer->Device->CreateTexture2D(&TextureDesc, &Data, &TempTexture);
     if(SUCCEEDED(Result))
     {
-        OutputDebugString("Index Buffer Created!\n");
+        OutputDebugString("SUCCEEDED Creating texture\n");
     }
-    */
-    return Mesh;
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC ShaderResourceDesc = {};
+    ShaderResourceDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;// DXGI_FORMAT_R8G8B8A8_UNORM;
+    ShaderResourceDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    ShaderResourceDesc.Texture2D.MostDetailedMip = 0;
+    ShaderResourceDesc.Texture2D.MipLevels = 1;
+    Result = Renderer->Device->CreateShaderResourceView(TempTexture, &ShaderResourceDesc, &Texture->ColorMap);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("SUCCEEDED Creating Shader resource view\n");
+    }
+    TempTexture->Release();
+
+    D3D11_SAMPLER_DESC ColorMapDesc = {};
+    ColorMapDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    ColorMapDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    ColorMapDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    ColorMapDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    ColorMapDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT; //D3D11_FILTER_MIN_MAG_MIP_LINEAR | D3D11_FILTER_MIN_MAG_MIP_POINT
+    ColorMapDesc.MaxLOD = D3D11_FLOAT32_MAX;
+    Result = Renderer->Device->CreateSamplerState(&ColorMapDesc, &Texture->ColorMapSampler);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("SUCCEEDED Creating sampler state\n");
+    }
+    return Texture;
+}
+
+static void
+SetTexture(texture *Texture, renderer *Renderer)
+{
+    Renderer->RenderContext->PSSetShaderResources(0, 1, &Texture->ColorMap);
+    Renderer->RenderContext->PSSetSamplers(0, 1, &Texture->ColorMapSampler);
 }
 
 static void

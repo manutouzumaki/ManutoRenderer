@@ -1,20 +1,16 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-// opaque struuct define in win32_platform.cpp
-struct window;
-// opaque struct define in directx.h and opengl.h
-struct renderer;
-struct shader;
+#define Assert(condition) if(!(condition)) { *(unsigned int *)0 = 0; } 
+#define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
 
-window *PlatformCreateWindow(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena);
-renderer *PlatformCreateRenderer(window *Window, arena *Arena);
-shader *PlatformCreateShadersFromFile(renderer *Renderer,
-                                      char * VertexShaderFileName, char *VSMainFunc,
-                                      char *PixelShaderFileName, char *PSMainFunc,
-                                      arena *Arena);
-void* PlatformAllocMemory(SIZE_T Size);
-void PlatformFreeMemory(void *Memory);
+#define Kilobytes(Value) ((Value)*1024LL)
+#define Megabytes(Value) (Kilobytes(Value)*1024LL)
+#define Gigabytes(Value) (Megabytes(Value)*1024LL)
+#define Terabytes(Value) (Gigabytes(Value)*1024LL)
+
+#define WND_WIDTH 800
+#define WND_HEIGHT 600
 
 struct game_state
 {
@@ -25,8 +21,38 @@ struct game_state
     arena FileArena;
 
     shader *Shader;
-    mesh *Cube;
-}; 
-  
+
+    mesh *TreeMesh;
+    texture *TreeTexture;
+    mesh *HouseMesh;
+    texture *HouseTexture;
+};   
+
+static int
+StringLength(char * String)
+{
+    int Count = 0;
+    while(*String++)
+    {
+        ++Count;
+    }
+    return Count;
+}
+
+static bool
+StringCompare(char *A, char *B, int Size)
+{
+    bool Result = true;
+    for(int Index = 0;
+        Index < Size;
+        ++Index)
+    {
+        if(*A++ != *B++)
+        {
+            Result = false;
+        } 
+    }
+    return Result;
+}
 
 #endif

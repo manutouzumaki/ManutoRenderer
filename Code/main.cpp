@@ -19,18 +19,17 @@ GameSetUp(app_memory *Memory)
                                                               "../Code/main_vertex_shader.hlsl", "VS_Main",
                                                               "../Code/main_pixel_shader.hlsl", "PS_Main",
                                                               &GameState->FileArena);
-            GameState->Cube = LoadMesh("../Data/monkey.obj", GameState->Renderer, &GameState->FileArena);
-            //GameState->Cube = LoadCube(GameState->Renderer, &GameState->RenderArena);
+            GameState->TreeMesh = LoadMesh("../Data/tree.obj", GameState->Renderer, &GameState->FileArena);
+            GameState->HouseMesh = LoadMesh("../Data/house.obj", GameState->Renderer, &GameState->FileArena);
+            GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
+            GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
+
             mat4 World = IdentityMat4();
-            mat4 View = ViewMat4({0.0f, 3.0f, 5.0f}, {0.0f, 0.0f,  0.0f}, {0.0f, 1.0f,  0.0f});
+            mat4 View = ViewMat4({5.0f, 1.0f, 10.0f}, {0.0f, 0.0f,  0.0f}, {0.0f, 1.0f,  0.0f});
             mat4 Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
             SetWorldMat4(GameState->Renderer, World);
             SetViewMat4(GameState->Renderer, View);
             SetProjectionMat4(GameState->Renderer, Proj);
-
-
-            // OBJ file Test...
-            //obj House = LoadOBJFile("../Data/cube.obj", &GameState->FileArena);
         }
     }   
 }
@@ -40,33 +39,14 @@ GameUpdateAndRender(app_memory *Memory, float DeltaTime)
 {
     game_state *GameState = (game_state *)Memory->Memory;
     
-    static float Time = 0;
-    mat4 World = TranslationMat4({0.0f, sinf(Time)*2.0f, 0.0f}) * RotationYMat(Time);
+    mat4 World = TranslationMat4({6.0f, .0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
-    Time += DeltaTime;
+    SetTexture(GameState->TreeTexture, GameState->Renderer);
+    RenderMesh(GameState->TreeMesh, GameState->Shader, GameState->Renderer);
 
+    World = TranslationMat4({0.0f, 0.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    SetTexture(GameState->HouseTexture, GameState->Renderer);
+    RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);
 
-    RenderMesh(GameState->Cube, GameState->Shader, GameState->Renderer);
-}
-
-static window *
-GetWindow(app_memory *Memory)
-{ 
-    game_state *GameState = (game_state *)Memory->Memory;
-    if(GameState->Window)
-    {
-        return GameState->Window;
-    }
-    return NULL;
-}
-
-static renderer *
-GetRenderer(app_memory *Memory)
-{
-    game_state *GameState = (game_state *)Memory->Memory;
-    if(GameState->Renderer)
-    {
-        return GameState->Renderer;
-    }
-    return NULL;
 }

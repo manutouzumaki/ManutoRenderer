@@ -1,48 +1,11 @@
 #include <windows.h>
 #include <stdio.h>
 
-#define Assert(condition) if(!(condition)) { *(unsigned int *)0 = 0; } 
-#define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
-
-static int
-StringLength(char * String)
-{
-    int Count = 0;
-    while(*String++)
-    {
-        ++Count;
-    }
-    return Count;
-}
-
-static bool
-StringCompare(char *A, char *B, int Size)
-{
-    bool Result = true;
-    for(int Index = 0;
-        Index < Size;
-        ++Index)
-    {
-        if(*A++ != *B++)
-        {
-            Result = false;
-        } 
-    }
-    return Result;
-}
-
-#define Kilobytes(Value) ((Value)*1024LL)
-#define Megabytes(Value) (Kilobytes(Value)*1024LL)
-#define Gigabytes(Value) (Megabytes(Value)*1024LL)
-#define Terabytes(Value) (Gigabytes(Value)*1024LL)
-
-#define WND_WIDTH 800
-#define WND_HEIGHT 600
-
 #include "math.h"
 #include "arena.h"
 #include "bitmap.h"
 #include "mesh.h"
+#include "platform.h"
 #include "main.h"
 
 #include "arena.cpp"
@@ -56,13 +19,6 @@ struct window
     int Height;
 };
 
-struct mat4_constant_buffer
-{
-    mat4 World;
-    mat4 Proj;
-    mat4 View;
-};
-
 #include "directx.h"
 #include "directx.cpp"
 
@@ -70,6 +26,29 @@ struct mat4_constant_buffer
 
 static bool GlobalRunning;
 static HINSTANCE GlobalInstance;
+
+// function that pass data from the game to the platform specific layer 
+static window *
+GetWindow(app_memory *Memory)
+{ 
+    game_state *GameState = (game_state *)Memory->Memory;
+    if(GameState->Window)
+    {
+        return GameState->Window;
+    }
+    return NULL;
+}
+
+static renderer *
+GetRenderer(app_memory *Memory)
+{
+    game_state *GameState = (game_state *)Memory->Memory;
+    if(GameState->Renderer)
+    {
+        return GameState->Renderer;
+    }
+    return NULL;
+}
 
 LRESULT CALLBACK WndProc(HWND   Window,
                          UINT   Message,
@@ -112,8 +91,7 @@ ProcesInputMessages()
     }
 }
 
-static window *
-PlatformCreateWindow(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena)
+PLATFORM_CREATE_WINDOW(PlatformCreateWindow)
 {
     window *Window = (window *)PushStruct(Arena, window);
     
@@ -145,8 +123,7 @@ PlatformCreateWindow(char * WindowName, int WindowWidth, int WindowHeight, arena
 
 }
 
-static renderer *
-PlatformCreateRenderer(window *Window, arena *Arena)
+PLATFORM_CREATE_RENDERER(PlatformCreateRenderer)
 {
     renderer *Renderer = (renderer *)PushStruct(Arena, renderer);
     D3D11Initialize(Window->Window, &Renderer->Device,
@@ -159,14 +136,9 @@ PlatformCreateRenderer(window *Window, arena *Arena)
 
 
 // in the furture pass more information for the input layout desc
-static shader *
-PlatformCreateShadersFromFile(renderer *Renderer,
-                              char * VertexShaderFileName, char *VSMainFunc,
-                              char *PixelShaderFileName, char *PSMainFunc,
-                              arena *Arena)
+PLATFORM_CREATE_SHADERS_FROM_FILE(PlatformCreateShadersFromFile)
 {
-        shader *Shader = (shader *)PushStruct(Arena, shader);
-       
+        shader *Shader = (shader *)PushStruct(Arena, shader); 
         D3D11_INPUT_ELEMENT_DESC InputLayoutDesc[] =
         {
             {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
@@ -182,19 +154,16 @@ PlatformCreateShadersFromFile(renderer *Renderer,
         D3D11CreatePixelShader(Renderer->Device, PixelShaderFileName, PSMainFunc,
                                &Shader->PixelShader, Arena);
         return Shader;
-
 }
 
-static void*
-PlatformAllocMemory(SIZE_T Size)
+PLATFORM_ALLOC_MEMORY(PlatformAllocMemory)
 {
     void *Result = NULL; 
     Result = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     return Result;    
 }
 
-static void 
-PlatformFreeMemory(void *Memory)
+PLATFORM_FREE_MEMORY(PlatformFreeMemory)
 {
     VirtualFree(Memory, 0, MEM_RELEASE);
 }
@@ -209,7 +178,7 @@ int WINAPI WinMain(HINSTANCE Instance,
     // Init the Application Storage
     app_memory AppMemory = {};
     AppMemory.Size = Megabytes(256);
-    AppMemory.Memory = VirtualAlloc(0, AppMemory.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);    
+    AppMemory.Memory = VirtualAlloc(0, AppMemory.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);   
     GameSetUp(&AppMemory);
 
     window *Window = GetWindow(&AppMemory);
@@ -219,7 +188,7 @@ int WINAPI WinMain(HINSTANCE Instance,
         LARGE_INTEGER Frequency = {};
         QueryPerformanceFrequency(&Frequency);
         bool SleepIsGranular = (timeBeginPeriod(1) == TIMERR_NOERROR);
-        float FPS = 30.0f;
+        float FPS = 60.0f;
         float TARGET_SECONDS_FRAME = (1.0f / FPS);
 
         RECT ClientDimensions = {};

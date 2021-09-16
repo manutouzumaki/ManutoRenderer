@@ -1,3 +1,6 @@
+Texture2D colorMap : register( t0 );
+SamplerState colorSampler : register( s0 );
+
 struct PS_Input
 {
     float4 pos : SV_POSITION;
@@ -8,11 +11,9 @@ struct PS_Input
 
 };
 
-
-
 float4 PS_Main( PS_Input frag ) : SV_TARGET
 { 
-    float3 ambientColor = float3( 0.1f, 0.1f, 0.0f );
+    float3 ambientColor = float3( 0.1f, 0.1f, 0.1f );
     float3 lightColor = float3( 0.7f, 0.7f, 0.7f );
 
     float3 lightVec = normalize( frag.lightVec );
@@ -28,8 +29,12 @@ float4 PS_Main( PS_Input frag ) : SV_TARGET
         specularTerm = pow( saturate( dot( normal, halfVec ) ), 25 );
     }
 
-    float3 finalColor = ambientColor + lightColor *
-        diffuseTerm + lightColor * specularTerm;
-    return float4( finalColor, 1.0f );
+    float4 objectColor = colorMap.Sample(colorSampler, frag.tex0);
+    
+    float3 finalColor = (ambientColor + diffuseTerm + specularTerm) * float3(objectColor.xyz);
+    float4 result = float4(finalColor, 1.0f);
+    
+
+    return result;
 }
 
