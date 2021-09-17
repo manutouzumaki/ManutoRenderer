@@ -56,6 +56,7 @@ struct game_state
     mat4 Proj;
     mat4 View;
     v3 CameraPos;
+    v3 CameraTarget;
 
     mesh *TreeMesh;
     texture *TreeTexture;

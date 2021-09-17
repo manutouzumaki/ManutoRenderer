@@ -128,7 +128,7 @@ v3 operator-(v3& A, float& S)
     return Result;
 }
 
-v3 operator*(v3& A, float& S)
+v3 operator*(v3& A, float S)
 {
     v3 Result = {};
     Result.X = A.X * S;
@@ -396,7 +396,14 @@ NormalizeAngle(float Angle)
     return Angle;
 }
 
-
+static v3
+PerpZV3(v3 V)
+{
+    v3 Result = {};
+    Result.X = -V.Z;
+    Result.Z = V.X;
+    return Result;
+}
 
 static float
 Det3x3(mat3 M)
