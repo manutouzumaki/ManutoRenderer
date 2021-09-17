@@ -154,11 +154,26 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     static bool MoveMesh = false;
     static v3 MouseProjectedPosition {};
     static v3 B = {};
+    static v3 Offset = {};
     if(ClickOnBoundingSphere(GameState->CameraPos, GameState->View, GameState->Proj,
                              GameState->BoundingSphere, 
                              Input, LEFT_CLICK))
     {
         B = GameState->BoundingSphere.Position;
+        v3 C = GameState->CameraTarget;
+        v3 O = GameState->CameraPos;
+        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->View, GameState->Proj);
+        D = NormalizeV3(D);
+        v3 N = C - O;
+        N = NormalizeV3(N);
+        
+        float T = 0;
+        if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
+        {
+            T = DotV3((N*-1.0f), (O - B)) / DotV3(N, D);
+        }
+        v3 MousePositionOnPlane = LerpV3(O, D, T);
+        Offset = MousePositionOnPlane - GameState->BoundingSphere.Position;
         MoveMesh = true;
     }
 
@@ -181,7 +196,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
         {
             T = DotV3((N*-1.0f), (O - B)) / DotV3(N, D);
         }
-        GameState->BoundingSphere.Position = LerpV3(O, D, T);
+        GameState->BoundingSphere.Position = LerpV3(O, D, T) - Offset;
     }
 
 
