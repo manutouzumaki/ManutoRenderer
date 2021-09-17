@@ -131,17 +131,18 @@ GameSetUp(app_memory *Memory)
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             
             mat4 World = IdentityMat4();
-            GameState->CameraPos = {3.0f, 0.0f, 5.0f};
-            GameState->CameraTarget = {0.0f, 1.0f,  0.0f};
+            GameState->CameraPos = {0.0f, 2.0f, 10.0f};
+            GameState->CameraTarget = {0.0f, 0.0f,  0.0f};
             GameState->View = ViewMat4(GameState->CameraPos, GameState->CameraTarget, {0.0f, 1.0f,  0.0f});
             GameState->Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
             SetWorldMat4(GameState->Renderer, World);
             SetViewMat4(GameState->Renderer, GameState->View);
             SetProjectionMat4(GameState->Renderer, GameState->Proj);
 
-            GameState->BoundingSphere;
-            GameState->BoundingSphere.Position = {3.0f, 1.0f, -4.0f};
-            GameState->BoundingSphere.Radius = 1.0f;
+            GameState->BoundingSpheres[0].Position = {3.0f, 0.0f, 0.0f};
+            GameState->BoundingSpheres[0].Radius = 1.0f; 
+            GameState->BoundingSpheres[1].Position = {0.0f, 0.0f, 0.0f};
+            GameState->BoundingSpheres[1].Radius = 4.0f;
         }
     }   
 }
@@ -150,31 +151,35 @@ static void
 GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 {
     game_state *GameState = (game_state *)Memory->Memory;
-
+    
+    // Update...
     static bool MoveMesh = false;
-    static v3 MouseProjectedPosition {};
-    static v3 B = {};
-    static v3 Offset = {};
-    if(ClickOnBoundingSphere(GameState->CameraPos, GameState->View, GameState->Proj,
-                             GameState->BoundingSphere, 
-                             Input, LEFT_CLICK))
+    for(int Index = 0;
+        Index < 2;
+        ++Index)
     {
-        B = GameState->BoundingSphere.Position;
-        v3 C = GameState->CameraTarget;
-        v3 O = GameState->CameraPos;
-        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->View, GameState->Proj);
-        D = NormalizeV3(D);
-        v3 N = C - O;
-        N = NormalizeV3(N);
-        
-        float T = 0;
-        if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
+        if(ClickOnBoundingSphere(GameState->CameraPos, GameState->View, GameState->Proj,
+                                 GameState->BoundingSpheres[Index], 
+                                 Input, LEFT_CLICK))
         {
-            T = DotV3((N*-1.0f), (O - B)) / DotV3(N, D);
+            GameState->SphereSelected = &GameState->BoundingSpheres[Index];
+            GameState->SpherePositionWhenClick = GameState->SphereSelected->Position;
+            v3 C = GameState->CameraTarget;
+            v3 O = GameState->CameraPos;
+            v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->View, GameState->Proj);
+            D = NormalizeV3(D);
+            v3 N = C - O;
+            N = NormalizeV3(N);
+            
+            float T = 0;
+            if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
+            {
+                T = DotV3((N*-1.0f), (O - GameState->SpherePositionWhenClick)) / DotV3(N, D);
+            }
+            v3 MousePositionOnPlane = LerpV3(O, D, T);
+            GameState->Offset = MousePositionOnPlane - GameState->SphereSelected->Position;
+            MoveMesh = true;
         }
-        v3 MousePositionOnPlane = LerpV3(O, D, T);
-        Offset = MousePositionOnPlane - GameState->BoundingSphere.Position;
-        MoveMesh = true;
     }
 
     if(MouseOnUp(Input, LEFT_CLICK))
@@ -194,77 +199,38 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
         float T = 0;
         if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
         {
-            T = DotV3((N*-1.0f), (O - B)) / DotV3(N, D);
+            T = DotV3((N*-1.0f), (O - GameState->SpherePositionWhenClick)) / DotV3(N, D);
         }
-        GameState->BoundingSphere.Position = LerpV3(O, D, T) - Offset;
+        GameState->SphereSelected->Position = LerpV3(O, D, T) - GameState->Offset;
     }
-
-
-
-
-
-/*
-    static v3 MouseProjectedPosition {};
-    static v3 MouseProjectedPositionOnPlane = {};
-    // Update...
-    if(MouseOnClick(Input, LEFT_CLICK))
-    {
-        float R = GameState->BoundingSphere.Radius;
-        v3 C = GameState->BoundingSphere.Position;
-        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->View, GameState->Proj);
-        D = NormalizeV3(D);
-        v3 O = GameState->CameraPos;
-
-        float BF = DotV3(D, (O - C));
-        float CF = DotV3((O - C),(O - C)) - (R*R);
-        
-        float TF = -1;
-        if(((BF*BF) - CF) >= 0)
-        {
-            float T0 = (-1.0f*BF) - sqrtf((BF*BF) - CF);
-            float T1 = (-1.0f*BF) + sqrtf((BF*BF) - CF);
-
-            if(T0 < T1)
-            {
-                TF = T0;
-            }
-            else
-            {
-                TF = T1; 
-            }
-            MouseProjectedPosition = LerpV3(GameState->CameraPos, D, TF);
-        }
-    }
-
-*/
-
+  
 
     // Render...
-#if 0  
-    mat4 World = TranslationMat4({6.0f, .0f, 0.0f});
+    SetFillType(GameState->Renderer, WIREFRAME);
+
+    float Scale = GameState->BoundingSpheres[0].Radius;
+    mat4 World = TranslationMat4(GameState->BoundingSpheres[0].Position) * ScaleMat4({Scale, Scale, Scale});
+    SetWorldMat4(GameState->Renderer, World);
+    SetTexture(GameState->SphereTexture, GameState->Renderer);
+    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
+
+    Scale = GameState->BoundingSpheres[1].Radius;
+    World = TranslationMat4(GameState->BoundingSpheres[1].Position) * ScaleMat4({Scale, Scale, Scale});
+    SetWorldMat4(GameState->Renderer, World);
+    SetTexture(GameState->SphereTexture, GameState->Renderer);
+    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
+
+    SetFillType(GameState->Renderer, SOLID);
+
+    World = TranslationMat4(GameState->BoundingSpheres[0].Position);// * ScaleMat4({Scale, Scale, Scale});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->TreeTexture, GameState->Renderer);
     RenderMesh(GameState->TreeMesh, GameState->Shader, GameState->Renderer);
 
-    World = TranslationMat4({0.0f, 0.0f, 0.0f});
+    World = TranslationMat4(GameState->BoundingSpheres[1].Position);// * ScaleMat4({Scale, Scale, Scale});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->HouseTexture, GameState->Renderer);
-    RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);
-#endif
-
-    float Scale = GameState->BoundingSphere.Radius;
-    mat4 World = TranslationMat4(GameState->BoundingSphere.Position) * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->SphereTexture, GameState->Renderer);
-    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
-    
-/* 
-    World = TranslationMat4(MouseProjectedPosition);// * ScaleMat4({0.3f, 0.3f, 0.3f});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->TreeTexture, GameState->Renderer);
-    RenderMesh(GameState->MousePosMesh, GameState->Shader, GameState->Renderer);
-*/
-
+    RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);    
 }
 
 

@@ -8,6 +8,8 @@ D3D11Initialize(HWND Window,
                 IDXGISwapChain **SwapChain,
                 ID3D11RenderTargetView **BackBuffer,
                 ID3D11DepthStencilView **DepthStencilView,
+                ID3D11RasterizerState **WireFrameRasterizer,
+                ID3D11RasterizerState **FillRasterizer,
                 unsigned int WindowWidth,
                 unsigned int WindowHeight)
 {
@@ -125,6 +127,19 @@ D3D11Initialize(HWND Window,
     Viewport.TopLeftX = 0.0f;
     Viewport.TopLeftY = 0.0f;
     (*RenderContext)->RSSetViewports(1, &Viewport);
+
+    // Create Rasterizer for set render types
+    D3D11_RASTERIZER_DESC FillRasterizerDesc = {};
+    FillRasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    FillRasterizerDesc.CullMode = D3D11_CULL_BACK;
+    FillRasterizerDesc.DepthClipEnable = true;
+    (*Device)->CreateRasterizerState(&FillRasterizerDesc, FillRasterizer);
+
+    D3D11_RASTERIZER_DESC WireFrameRasterizerDesc = {};
+    WireFrameRasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+    WireFrameRasterizerDesc.CullMode = D3D11_CULL_NONE;
+    WireFrameRasterizerDesc.DepthClipEnable = true;
+    (*Device)->CreateRasterizerState(&WireFrameRasterizerDesc, WireFrameRasterizer);
 }
 
 static ID3DBlob *
@@ -411,6 +426,19 @@ SetTexture(texture *Texture, renderer *Renderer)
 {
     Renderer->RenderContext->PSSetShaderResources(0, 1, &Texture->ColorMap);
     Renderer->RenderContext->PSSetSamplers(0, 1, &Texture->ColorMapSampler);
+}
+
+static void 
+SetFillType(renderer *Renderer, int Type)
+{
+    if(Type == 0)
+    {
+        Renderer->RenderContext->RSSetState(Renderer->FillRasterizer);
+    }
+    else if(Type == 1)
+    { 
+        Renderer->RenderContext->RSSetState(Renderer->WireFrameRasterizer);
+    }
 }
 
 static void

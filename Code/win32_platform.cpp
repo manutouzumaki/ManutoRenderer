@@ -162,6 +162,7 @@ PLATFORM_CREATE_RENDERER(PlatformCreateRenderer)
     D3D11Initialize(Window->Window, &Renderer->Device,
                     &Renderer->RenderContext, &Renderer->SwapChain,
                     &Renderer->BackBuffer, &Renderer->DepthStencilView,
+                    &Renderer->WireFrameRasterizer, &Renderer->FillRasterizer,
                     Window->Width, Window->Height);
     InitMa4ConstBuffer(Renderer);
     return Renderer;
@@ -280,6 +281,8 @@ int WINAPI WinMain(HINSTANCE Instance,
             LastCount = ActualCount;
 
         }
+        if(Renderer->WireFrameRasterizer) Renderer->WireFrameRasterizer->Release();
+        if(Renderer->FillRasterizer) Renderer->FillRasterizer->Release();
         if(Renderer->DepthStencilView) Renderer->DepthStencilView->Release();
         if(Renderer->BackBuffer) Renderer->BackBuffer->Release();
         if(Renderer->SwapChain) Renderer->SwapChain->Release();

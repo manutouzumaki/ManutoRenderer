@@ -16,6 +16,9 @@
 #define MIDDLE_CLICK 1
 #define RIGHT_CLICK 2
 
+#define SOLID 0
+#define WIREFRAME 1
+
 static int
 StringLength(char * String)
 {
@@ -67,7 +70,12 @@ struct game_state
 
     mesh *MousePosMesh;
 
-    bounding_sphere BoundingSphere;
-};   
+    bounding_sphere BoundingSpheres[2];
+
+    bounding_sphere *SphereSelected;
+    v3 SpherePositionWhenClick;
+    v3 Offset;
+
+};  
 
 #endif

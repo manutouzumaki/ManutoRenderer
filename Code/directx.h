@@ -13,6 +13,8 @@ struct renderer
     IDXGISwapChain *SwapChain;
     ID3D11RenderTargetView *BackBuffer;
     ID3D11DepthStencilView* DepthStencilView;
+    ID3D11RasterizerState *WireFrameRasterizer;
+    ID3D11RasterizerState *FillRasterizer;
 };
 
 struct shader
