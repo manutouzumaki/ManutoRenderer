@@ -1,16 +1,19 @@
 #include <windows.h>
+#include <Windowsx.h>
 #include <stdio.h>
 
 #include "math.h"
 #include "arena.h"
 #include "bitmap.h"
 #include "mesh.h"
+#include "bounding_volumes.h"
 #include "platform.h"
 #include "main.h"
 
 #include "arena.cpp"
 #include "bitmap.cpp"
 #include "mesh.cpp"
+#include "bounding_volumes.cpp"
 
 struct window
 {
@@ -75,18 +78,48 @@ LRESULT CALLBACK WndProc(HWND   Window,
 }
 
 static void 
-ProcesInputMessages()
+ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_buttons *OldMouseButtons)
 {
     MSG Message = {};
     while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
     {
         switch(Message.message)
         {
+            case WM_MOUSEMOVE:
+            {
+                Input->MouseX = (int)GET_X_LPARAM(Message.lParam); 
+                Input->MouseY = (int)GET_Y_LPARAM(Message.lParam); 
+            }break;
+            case WM_LBUTTONDOWN:
+            case WM_LBUTTONUP:
+            case WM_RBUTTONDOWN:
+            case WM_RBUTTONUP:
+            case WM_MBUTTONDOWN:
+            case WM_MBUTTONUP:
+            {
+                ActualMouseButtons->Buttons[0].IsDown = ((Message.wParam & MK_LBUTTON) != 0);
+                ActualMouseButtons->Buttons[1].IsDown = ((Message.wParam & MK_MBUTTON) != 0);
+                ActualMouseButtons->Buttons[2].IsDown = ((Message.wParam & MK_RBUTTON) != 0);
+            }break;
+
             default:
             {
                 TranslateMessage(&Message);
                 DispatchMessage(&Message);   
             }break;
+        }
+    }
+    for(int MouseIndex = 0;
+        MouseIndex < 3;
+        ++MouseIndex)
+    {
+        if(OldMouseButtons->Buttons[MouseIndex].IsDown)
+        {  
+            ActualMouseButtons->Buttons[MouseIndex].WasDown = 1;
+        }
+        else
+        { 
+            ActualMouseButtons->Buttons[MouseIndex].WasDown = 0;
         }
     }
 }
@@ -180,6 +213,11 @@ int WINAPI WinMain(HINSTANCE Instance,
     AppMemory.Size = Megabytes(256);
     AppMemory.Memory = VirtualAlloc(0, AppMemory.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);   
     GameSetUp(&AppMemory);
+    
+    app_input AppInput = {};
+    mouse_buttons ActualMouseButtons = {};
+    mouse_buttons OldMouseButtons = {};
+     
 
     window *Window = GetWindow(&AppMemory);
     renderer *Renderer = GetRenderer(&AppMemory);
@@ -226,17 +264,19 @@ int WINAPI WinMain(HINSTANCE Instance,
             unsigned long long DeltaCount = ActualCount.QuadPart - LastCount.QuadPart;            
             float DeltaTime = ((float)DeltaCount / (float)Frequency.QuadPart);
 
-            ProcesInputMessages();
+            ProcesInputMessages(&AppInput, &ActualMouseButtons, &OldMouseButtons);
+            AppInput.MouseButtons = &ActualMouseButtons;
 
             // Render...
             float ClearColor[4] = {0.0f, 0.0f, 0.3f, 1.0f};
             Renderer->RenderContext->ClearRenderTargetView(Renderer->BackBuffer, ClearColor);
             Renderer->RenderContext->ClearDepthStencilView(Renderer->DepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 
-            GameUpdateAndRender(&AppMemory, DeltaTime);
+            GameUpdateAndRender(&AppMemory, &AppInput, DeltaTime);
 
             Renderer->SwapChain->Present(0, 0);
             
+            OldMouseButtons = ActualMouseButtons;
             LastCount = ActualCount;
 
         }

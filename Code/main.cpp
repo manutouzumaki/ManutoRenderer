@@ -1,3 +1,55 @@
+static bool
+MouseOnClick(app_input *Input, int MouseButton)
+{
+    if(Input->MouseButtons->Buttons[MouseButton].IsDown != Input->MouseButtons->Buttons[MouseButton].WasDown)
+    {
+        if(Input->MouseButtons->Buttons[MouseButton].IsDown)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool
+MouseDown(app_input *Input, int MouseButton)
+{
+    if(Input->MouseButtons->Buttons[MouseButton].IsDown)
+    {
+        return true;
+    }
+    return false;
+}
+   
+static v3
+GetV3RayFrom2DPos(int XPos, int YPos, mat4 View, mat4 Proj)
+{
+    mat4 InvView = GetInverseMatrix(View);
+    mat4 InvProj = GetInverseMatrix(Proj);
+
+    // first we have to normalize the mouse position to be between -1:1, -1:1, -1:1
+    float X = (2.0f * XPos) / WND_WIDTH - 1.0f;
+    //float Y = (2.0f * YPos) / WND_HEIGHT - 1.0f;
+    float Y = 1.0f - (2.0f * YPos) / WND_HEIGHT;
+    float Z = 1.0f;
+    v3 RayNormalised = {X, Y, Z};
+
+    // then we get the homogeneus clip coordinates
+    v4 RayClip = {RayNormalised.X, RayNormalised.Y, 1.0f, 1.0f};
+
+    // next we get the eye camera coordinates
+    v4 RayEye = InvProj * RayClip;
+    RayEye.Z = 1.0f;
+    RayEye.W = 0.0f; 
+
+    v4 RayWorld = InvView * RayEye;
+    RayWorld = NormalizeV4(RayWorld);
+
+    v3 Result = {RayWorld.X, RayWorld.Y, RayWorld.Z};
+    return Result;
+
+}
+
 static void
 GameSetUp(app_memory *Memory)
 {
@@ -21,24 +73,73 @@ GameSetUp(app_memory *Memory)
                                                               &GameState->FileArena);
             GameState->TreeMesh = LoadMesh("../Data/tree.obj", GameState->Renderer, &GameState->FileArena);
             GameState->HouseMesh = LoadMesh("../Data/house.obj", GameState->Renderer, &GameState->FileArena);
+            GameState->SphereMesh = LoadMesh("../Data/sphere.obj", GameState->Renderer, &GameState->FileArena);
+            GameState->MousePosMesh = LoadMesh("../Data/sphere.obj", GameState->Renderer, &GameState->FileArena);
             GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
-
+            GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
+            
             mat4 World = IdentityMat4();
-            mat4 View = ViewMat4({5.0f, 1.0f, 10.0f}, {0.0f, 0.0f,  0.0f}, {0.0f, 1.0f,  0.0f});
-            mat4 Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
+            GameState->CameraPos = {0.0f, 0.0f, 6.0f};
+            GameState->View = ViewMat4(GameState->CameraPos, {0.0f, 0.0f,  0.0f}, {0.0f, 1.0f,  0.0f});
+            GameState->Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
             SetWorldMat4(GameState->Renderer, World);
-            SetViewMat4(GameState->Renderer, View);
-            SetProjectionMat4(GameState->Renderer, Proj);
+            SetViewMat4(GameState->Renderer, GameState->View);
+            SetProjectionMat4(GameState->Renderer, GameState->Proj);
+
+            GameState->BoundingSphere;
+            GameState->BoundingSphere.Position = {3.0f, 1.0f, 0.0f};
+            GameState->BoundingSphere.Radius = 1.0f;
         }
     }   
 }
     
 static void
-GameUpdateAndRender(app_memory *Memory, float DeltaTime)
+GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 {
     game_state *GameState = (game_state *)Memory->Memory;
     
+    static v3 MouseProjectedPosition {};
+    // Update...
+    if(MouseDown(Input, LEFT_CLICK))
+    {
+        float R = GameState->BoundingSphere.Radius;
+        v3 C = GameState->BoundingSphere.Position;
+        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->View, GameState->Proj);
+        D = NormalizeV3(D);
+        v3 O = GameState->CameraPos;
+
+        float BF = DotV3(D, (O - C));
+        float CF = DotV3((O - C),(O - C)) - (R*R);
+
+        float T0 = (-1.0f*BF) - sqrtf((BF*BF) - CF);
+        float T1 = (-1.0f*BF) + sqrtf((BF*BF) - CF);
+        float TF = 0;
+
+        if(T0 < T1)
+        {
+            TF = T0;
+        }
+        else
+        {
+            TF = T1; 
+        }
+        
+        if(TF != 0)
+        {
+            MouseProjectedPosition = LerpV3(GameState->CameraPos, D, TF);
+
+            char Buffer[100];
+            sprintf(Buffer, "X: %f Y: %f Z: %f\n", MouseProjectedPosition.X, MouseProjectedPosition.Y, MouseProjectedPosition.Z);
+            OutputDebugString(Buffer);
+        }
+    }
+
+
+
+
+    // Render...
+#if 0  
     mat4 World = TranslationMat4({6.0f, .0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->TreeTexture, GameState->Renderer);
@@ -48,5 +149,21 @@ GameUpdateAndRender(app_memory *Memory, float DeltaTime)
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->HouseTexture, GameState->Renderer);
     RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);
+#endif
+
+    float Scale = GameState->BoundingSphere.Radius;
+    mat4 World = TranslationMat4(GameState->BoundingSphere.Position) * ScaleMat4({Scale, Scale, Scale});
+    SetWorldMat4(GameState->Renderer, World);
+    SetTexture(GameState->SphereTexture, GameState->Renderer);
+    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
+    
+ 
+    World = TranslationMat4(MouseProjectedPosition) * ScaleMat4({0.3f, 0.3f, 0.3f});
+    SetWorldMat4(GameState->Renderer, World);
+    SetTexture(GameState->TreeTexture, GameState->Renderer);
+    RenderMesh(GameState->MousePosMesh, GameState->Shader, GameState->Renderer);
 
 }
+
+
+

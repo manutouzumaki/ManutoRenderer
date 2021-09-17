@@ -17,9 +17,19 @@ struct v3
     float X, Y, Z;
 };
 
+struct v4
+{
+    float X, Y, Z, W;
+};
+
 struct mat4
 {
     float m[4][4];
+};
+
+struct mat3
+{
+    float m[3][3];
 };
 
 float 
@@ -136,20 +146,49 @@ v3 operator/(v3& A, float& S)
     return Result;
 }
 
-
+v4 operator*(mat4& M, v4& V)
+{
+    v4 Result = {};
+    Result.X = M.m[0][0] * V.X + M.m[0][1] * V.Y + M.m[0][2] * V.Z + M.m[0][3] * V.W;
+    Result.Y = M.m[1][0] * V.X + M.m[1][1] * V.Y + M.m[1][2] * V.Z + M.m[1][3] * V.W;
+    Result.Z = M.m[2][0] * V.X + M.m[2][1] * V.Y + M.m[2][2] * V.Z + M.m[2][3] * V.W;
+    Result.W = M.m[3][0] * V.X + M.m[3][1] * V.Y + M.m[3][2] * V.Z + M.m[3][3] * V.W;
+    return Result;
+}
 
 mat4 operator*(mat4& A, mat4& B)
 {
     mat4 Result;
-    for(int Y = 0; Y < 4; Y++)
+    for(int Y = 0;
+        Y < 4;
+        ++Y)
     {
-        for(int X = 0; X < 4; X++)
+        for(int X = 0;
+            X < 4;
+            ++X)
         {
                 Result.m[Y][X] =
                 A.m[Y][0] * B.m[0][X] +
                 A.m[Y][1] * B.m[1][X] +
                 A.m[Y][2] * B.m[2][X] +
                 A.m[Y][3] * B.m[3][X];
+        }
+    }
+    return Result;
+}
+
+mat4 operator*(mat4 M, float S)
+{
+    mat4 Result;
+    for(int Y = 0;
+        Y < 4;
+        ++Y)
+    {
+        for(int X = 0;
+            X < 4;
+            ++X)
+        {
+            Result.m[Y][X] = M.m[Y][X] * S; 
         }
     }
     return Result;
@@ -251,12 +290,28 @@ float LengthV3(v3 V)
     return sqrtf(V.X*V.X + V.Y*V.Y + V.Z*V.Z);
 }
 
+float LengthV4(v4 V)
+{
+    return sqrtf(V.X*V.X + V.Y*V.Y + V.Z*V.Z + V.W+V.W);
+}
+
+
 v3 NormalizeV3(v3 V)
 {
     v3 Result = {};
     Result.X = V.X / LengthV3(V);
     Result.Y = V.Y / LengthV3(V);
     Result.Z = V.Z / LengthV3(V);
+    return Result;
+} 
+
+v4 NormalizeV4(v4 V)
+{
+    v4 Result = {};
+    Result.X = V.X / LengthV4(V);
+    Result.Y = V.Y / LengthV4(V);
+    Result.Z = V.Z / LengthV4(V);
+    Result.W = V.W / LengthV4(V);
     return Result;
 }  
 
@@ -318,9 +373,16 @@ mat4 OrthogonalProjMat4(int width, int height, float znear, float zfar)
     return result;
 }
 
+static 
 v2 LerpV2(v2 A, v2 B, float T)
 {
     return A + ((B - A) * T);
+}
+
+static v3
+LerpV3(v3 A, v3 D, float T)
+{
+    return A + (D * T);
 }
 
 static float
@@ -333,5 +395,104 @@ NormalizeAngle(float Angle)
     }
     return Angle;
 }
+
+
+
+static float
+Det3x3(mat3 M)
+{
+    float Det = (M.m[0][0]*M.m[1][1]*M.m[2][2]) +
+                (M.m[0][1]*M.m[1][2]*M.m[2][0]) +
+                (M.m[0][2]*M.m[1][0]*M.m[2][1]) -
+                (M.m[0][2]*M.m[1][1]*M.m[2][0]) -
+                (M.m[0][1]*M.m[1][0]*M.m[2][2]) -
+                (M.m[0][0]*M.m[1][2]*M.m[2][1]);
+    return Det;
+}
+
+static mat3
+GetCofMatrix(mat4 M, int X, int Y)
+{
+    mat3 Result;
+    int YIndex = 0; 
+    for(int I = 0;
+        I < 4;
+        ++I)
+    {
+        if(I != Y)
+        {
+            int XIndex = 0; 
+            for(int J = 0;
+                J < 4;
+                ++J)
+            {
+                if(J != X)
+                {
+                    Result.m[YIndex][XIndex] = M.m[I][J];
+                    XIndex++;
+                }
+                
+            }
+            YIndex++;
+        }
+    }    
+    return Result;
+}
+
+static float
+Det4x4(mat4 M)
+{
+    float Cof0 =  Det3x3(GetCofMatrix(M, 0, 0));
+    float Cof1 = -Det3x3(GetCofMatrix(M, 1, 0));
+    float Cof2 =  Det3x3(GetCofMatrix(M, 2, 0));
+    float Cof3 = -Det3x3(GetCofMatrix(M, 3, 0));
+    float Det4x4 = (M.m[0][0] * Cof0) +
+                   (M.m[0][1] * Cof1) +
+                   (M.m[0][2] * Cof2) +
+                   (M.m[0][3] * Cof3);
+    return Det4x4;
+}
+
+static mat4
+GetMatrixAdjunta(mat4 M)
+{
+    mat4 Result;
+    for(int I = 0;
+        I < 4;
+        ++I)
+    {
+        for(int J = 0;
+            J < 4;
+            ++J)
+        {
+            if(I % 2 == 0)
+            {
+                if(J % 2 == 0)
+                    Result.m[I][J] =  Det3x3(GetCofMatrix(M, J, I));
+                else
+                    Result.m[I][J] = -Det3x3(GetCofMatrix(M, J, I));
+            }
+            else
+            {
+                if(J % 2 == 0)
+                    Result.m[I][J] = -Det3x3(GetCofMatrix(M, J, I));
+                else
+                    Result.m[I][J] =  Det3x3(GetCofMatrix(M, J, I));
+            }
+            
+          }
+    }
+    Result = TransposeMat4(Result);
+    return Result;
+}
+
+static mat4
+GetInverseMatrix(mat4 M)
+{
+    mat4 Result = GetMatrixAdjunta(M) * (1.0f / Det4x4(M));
+    return Result;
+}
+
+
 
 #endif

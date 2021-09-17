@@ -12,21 +12,9 @@
 #define WND_WIDTH 800
 #define WND_HEIGHT 600
 
-struct game_state
-{
-    window *Window;
-    renderer *Renderer;
-
-    arena RenderArena;
-    arena FileArena;
-
-    shader *Shader;
-
-    mesh *TreeMesh;
-    texture *TreeTexture;
-    mesh *HouseMesh;
-    texture *HouseTexture;
-};   
+#define LEFT_CLICK 0
+#define MIDDLE_CLICK 1
+#define RIGHT_CLICK 2
 
 static int
 StringLength(char * String)
@@ -54,5 +42,31 @@ StringCompare(char *A, char *B, int Size)
     }
     return Result;
 }
+
+struct game_state
+{
+    window *Window;
+    renderer *Renderer;
+
+    arena RenderArena;
+    arena FileArena;
+
+    shader *Shader;
+
+    mat4 Proj;
+    mat4 View;
+    v3 CameraPos;
+
+    mesh *TreeMesh;
+    texture *TreeTexture;
+    mesh *HouseMesh;
+    texture *HouseTexture; 
+    mesh *SphereMesh;
+    texture *SphereTexture;
+
+    mesh *MousePosMesh;
+
+    bounding_sphere BoundingSphere;
+};   
 
 #endif

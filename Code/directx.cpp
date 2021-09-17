@@ -426,7 +426,6 @@ RenderMesh(mesh *Mesh, shader *Shader, renderer *Renderer)
     Renderer->RenderContext->Draw(Mesh->VertexCount/8, 0);
 }
 
-
 static void
 RenderMeshIndexed(mesh *Mesh, shader *Shader, renderer *Renderer)
 {

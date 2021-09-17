@@ -28,4 +28,21 @@ struct app_memory
     size_t Use;
 };
 
+struct button_state
+{
+    bool IsDown;
+    bool WasDown;
+};
+
+struct mouse_buttons
+{
+    button_state Buttons[3];
+};
+
+struct app_input
+{
+    int MouseX, MouseY;
+    mouse_buttons *MouseButtons;   
+};
+
 #endif
