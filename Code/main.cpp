@@ -34,7 +34,6 @@ MouseDown(app_input *Input, int MouseButton)
     }
     return false;
 }
-
    
 static v3
 GetV3RayFrom2DPos(int XPos, int YPos, mat4 View, mat4 Proj)
@@ -102,6 +101,17 @@ ClickOnBoundingSphere(v3 CameraPos, mat4 View, mat4 Proj,
 }
 
 static void
+UpdateCameraView(arc_camera *Camera, app_input *Input)
+{
+    Camera->Distance = LengthV3(Camera->Target - Camera->Position);
+    Camera->Front = NormalizeV3(Camera->Target - Camera->Position);
+    Camera->Right = NormalizeV3(CrossV3({0.0f, 1.0f, 0.0f}, Camera->Front));
+    Camera->Up = NormalizeV3(CrossV3(Camera->Front, Camera->Right));
+    
+    Camera->View = ViewMat4(Camera->Position, Camera->Position + Camera->Front, Camera->Up);
+}
+
+static void
 GameSetUp(app_memory *Memory)
 {
     game_state *GameState = (game_state *)Memory->Memory;
@@ -124,49 +134,99 @@ GameSetUp(app_memory *Memory)
                                                               &GameState->FileArena);
             GameState->TreeMesh = LoadMesh("../Data/tree.obj", GameState->Renderer, &GameState->FileArena);
             GameState->HouseMesh = LoadMesh("../Data/house.obj", GameState->Renderer, &GameState->FileArena);
-            GameState->SphereMesh = LoadMesh("../Data/sphere.obj", GameState->Renderer, &GameState->FileArena);
-            GameState->MousePosMesh = LoadMesh("../Data/sphere.obj", GameState->Renderer, &GameState->FileArena);
+            GameState->SphereMesh = LoadMesh("../Data/sphere_low.obj", GameState->Renderer, &GameState->FileArena);
             GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             
+            GameState->Camera.Position = {0.0f, 0.0f, 10.0f};
+            GameState->Camera.Target = {0.0f, 0.0f,  0.0f};
+
             mat4 World = IdentityMat4();
-            GameState->CameraPos = {0.0f, 2.0f, 10.0f};
-            GameState->CameraTarget = {0.0f, 0.0f,  0.0f};
-            GameState->View = ViewMat4(GameState->CameraPos, GameState->CameraTarget, {0.0f, 1.0f,  0.0f});
             GameState->Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
             SetWorldMat4(GameState->Renderer, World);
-            SetViewMat4(GameState->Renderer, GameState->View);
             SetProjectionMat4(GameState->Renderer, GameState->Proj);
 
             GameState->BoundingSpheres[0].Position = {3.0f, 0.0f, 0.0f};
             GameState->BoundingSpheres[0].Radius = 1.0f; 
             GameState->BoundingSpheres[1].Position = {0.0f, 0.0f, 0.0f};
             GameState->BoundingSpheres[1].Radius = 4.0f;
+
         }
     }   
 }
-    
+   
+static void
+ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
+{
+    if(MouseOnClick(Input, MIDDLE_CLICK))
+    {
+        PlatformShowCursor(false);
+        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
+    }
+    else if(MouseDown(Input, MIDDLE_CLICK))
+    {
+        static float MouseOffsetX = 0;
+        static float MouseOffsetY = 0;
+        MouseOffsetX += (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
+        MouseOffsetY += (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime;
+        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
+
+        // rotate camera around y axis
+        v4 OGPosition = {1.0f, 0.0f, 0.0f, 1.0f}; 
+        char Buffer[100];
+        sprintf(Buffer, "XOffset %f\n", MouseOffsetX);
+        OutputDebugString(Buffer);
+
+        v4 CameraDirectionV4 = RotationV3Mat({0.0f, 1.0f, 0.0f}, -MouseOffsetX) * OGPosition;
+        CameraDirectionV4 = RotationV3Mat(GameState->Camera.Right, -MouseOffsetY) * CameraDirectionV4;
+        v3 Result = {};
+        Result.X = CameraDirectionV4.X;
+        Result.Y = CameraDirectionV4.Y;
+        Result.Z = CameraDirectionV4.Z;
+        Result = NormalizeV3(Result);
+        GameState->Camera.Position = Result * GameState->Camera.Distance; 
+
+        //GameState->Camera.Position.X = (cosf(-MouseOffsetX) * GameState->Camera.Distance) + GameState->Camera.Target.X;
+        //GameState->Camera.Position.Z = (sinf(-MouseOffsetX) * GameState->Camera.Distance) + GameState->Camera.Target.Z; 
+    }
+    if(MouseOnUp(Input, MIDDLE_CLICK))
+    {
+        PlatformShowCursor(true);
+    }
+
+    if(MouseDown(Input, RIGHT_CLICK))
+    {
+        GameState->Camera.Position = GameState->Camera.Position + GameState->Camera.Up * DeltaTime;
+        GameState->Camera.Target = GameState->Camera.Target + GameState->Camera.Up * DeltaTime;
+    }
+}
+
 static void
 GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 {
     game_state *GameState = (game_state *)Memory->Memory;
     
-    // Update...
+    // Update... 
+    ProcessInput(Input, GameState, DeltaTime); 
+    UpdateCameraView(&GameState->Camera, Input);
+    SetViewMat4(GameState->Renderer, GameState->Camera.View);
+    
+
     static bool MoveMesh = false;
     for(int Index = 0;
         Index < 2;
         ++Index)
     {
-        if(ClickOnBoundingSphere(GameState->CameraPos, GameState->View, GameState->Proj,
+        if(ClickOnBoundingSphere(GameState->Camera.Position, GameState->Camera.View, GameState->Proj,
                                  GameState->BoundingSpheres[Index], 
                                  Input, LEFT_CLICK))
         {
             GameState->SphereSelected = &GameState->BoundingSpheres[Index];
             GameState->SpherePositionWhenClick = GameState->SphereSelected->Position;
-            v3 C = GameState->CameraTarget;
-            v3 O = GameState->CameraPos;
-            v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->View, GameState->Proj);
+            v3 C = GameState->Camera.Target;
+            v3 O = GameState->Camera.Position;
+            v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->Camera.View, GameState->Proj);
             D = NormalizeV3(D);
             v3 N = C - O;
             N = NormalizeV3(N);
@@ -187,11 +247,16 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
         MoveMesh = false;
     }
 
+    if(MouseOnClick(Input, SHIFT_MIDDLE_CLICK))
+    {
+        OutputDebugString("Shift Middle Click!!\n");
+    }
+
     if(MoveMesh)
     {
-        v3 C = GameState->CameraTarget;
-        v3 O = GameState->CameraPos;
-        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->View, GameState->Proj);
+        v3 C = GameState->Camera.Target;
+        v3 O = GameState->Camera.Position;
+        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->Camera.View, GameState->Proj);
         D = NormalizeV3(D);
         v3 N = C - O;
         N = NormalizeV3(N);
@@ -230,7 +295,12 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     World = TranslationMat4(GameState->BoundingSpheres[1].Position);// * ScaleMat4({Scale, Scale, Scale});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->HouseTexture, GameState->Renderer);
-    RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);    
+    RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);   
+
+    World = TranslationMat4(GameState->Camera.Target) * ScaleMat4({0.3f, 0.3f, 0.3f});
+    SetWorldMat4(GameState->Renderer, World);
+    SetTexture(GameState->SphereTexture, GameState->Renderer);
+    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer); 
 }
 
 

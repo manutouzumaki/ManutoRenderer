@@ -10,6 +10,7 @@ PushSize(arena *Arena, size_t Size)
 void 
 InitArena(app_memory *AppMemory, arena *Arena, size_t Size)
 {
+    Assert(AppMemory->Use + Size <= AppMemory->Size);
     Arena->Base = (char *)AppMemory->Memory + AppMemory->Use;
     Arena->Size = Size;
     AppMemory->Use += Size;

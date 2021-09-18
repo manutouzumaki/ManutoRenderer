@@ -9,12 +9,13 @@
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)
 #define Terabytes(Value) (Gigabytes(Value)*1024LL)
 
-#define WND_WIDTH 800
-#define WND_HEIGHT 600
+#define WND_WIDTH 1280
+#define WND_HEIGHT 720
 
 #define LEFT_CLICK 0
 #define MIDDLE_CLICK 1
 #define RIGHT_CLICK 2
+#define SHIFT_MIDDLE_CLICK 3
 
 #define SOLID 0
 #define WIREFRAME 1
@@ -46,6 +47,21 @@ StringCompare(char *A, char *B, int Size)
     return Result;
 }
 
+struct arc_camera
+{
+    v3 Position;
+    v3 Up;
+    v3 Right;
+    v3 Front;
+
+
+    v3 Target;
+    float Distance;
+    
+    mat4 View;
+
+};
+
 struct game_state
 {
     window *Window;
@@ -57,9 +73,12 @@ struct game_state
     shader *Shader;
 
     mat4 Proj;
-    mat4 View;
-    v3 CameraPos;
-    v3 CameraTarget;
+
+    
+    arc_camera Camera;
+    //mat4 View;
+    //v3 CameraPos;
+    //v3 CameraTarget;
 
     mesh *TreeMesh;
     texture *TreeTexture;
@@ -68,10 +87,9 @@ struct game_state
     mesh *SphereMesh;
     texture *SphereTexture;
 
-    mesh *MousePosMesh;
 
     bounding_sphere BoundingSpheres[2];
-
+    
     bounding_sphere *SphereSelected;
     v3 SpherePositionWhenClick;
     v3 Offset;

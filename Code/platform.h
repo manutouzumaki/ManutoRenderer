@@ -12,14 +12,19 @@ struct shader;
 #define PLATFORM_CREATE_SHADERS_FROM_FILE(name) shader *name(renderer *Renderer, char * VertexShaderFileName, \
                                                              char *VSMainFunc, char *PixelShaderFileName, \
                                                              char *PSMainFunc, arena *Arena)
-#define PLATFORM_ALLOC_MEMORY(name) void* name(SIZE_T Size)
+#define PLATFORM_ALLOC_MEMORY(name) void* name(size_t Size)
 #define PLATFORM_FREE_MEMORY(name) void name(void *Memory)
+
+#define PLATFORM_SHOW_CURSOR(name) void name(bool Value)
+#define PLATFORM_SET_CURSOR_POSITION(name) void name(int PosX, int PosY)
 
 PLATFORM_CREATE_WINDOW(PlatformCreateWindow);
 PLATFORM_CREATE_RENDERER(PlatformCreateRenderer);
 PLATFORM_CREATE_SHADERS_FROM_FILE(PlatformCreateShadersFromFile);
 PLATFORM_ALLOC_MEMORY(PlatformAllocMemory);
 PLATFORM_FREE_MEMORY(PlatformFreeMemory);
+PLATFORM_SHOW_CURSOR(PlatformShowCursor);
+PLATFORM_SET_CURSOR_POSITION(PlatformSetCursorPosition);
 
 struct app_memory
 {
@@ -36,12 +41,13 @@ struct button_state
 
 struct mouse_buttons
 {
-    button_state Buttons[3];
+    button_state Buttons[4];
 };
 
 struct app_input
 {
     int MouseX, MouseY;
+    int MouseDefaultX, MouseDefaultY;
     mouse_buttons *MouseButtons;   
 };
 

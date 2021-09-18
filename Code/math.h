@@ -315,6 +315,19 @@ v4 NormalizeV4(v4 V)
     return Result;
 }  
 
+mat4 
+RotationV3Mat(v3 V, float A)
+{
+    V = NormalizeV3(V);
+    mat4 Result = {{
+        {(V.X*V.X)*(1.0f-cosf(A))+cosf(A),  V.X*V.Y*(1.0f-cosf(A))+V.Z*sinf(A),   V.X*V.Z*(1.0f-cosf(A))-V.Y*sinf(A),     0.0f},
+        {V.X*V.Y*(1.0f-cosf(A))-V.Z*sinf(A),   (V.Y*V.Y)*(1.0f-cosf(A))+cosf(A),  V.Y*V.Z*(1.0f-cosf(A))+V.X*sinf(A),     0.0f},
+        {V.X*V.Z*(1.0f-cosf(A))+V.Y*sinf(A),   V.Y*V.Z*(1.0f-cosf(A))-V.X*sinf(A),   (V.Z*V.Z)*(1.0f-cosf(A))+cosf(A),    0.0f},
+        {0.0f,                                 0.0f,                                 0.0f,                                   1.0f}
+    }};
+    return Result;
+}
+
 float DotV3(v3 A, v3 B)
 {
     return (A.X*B.X + A.Y*B.Y + A.Z*B.Z);

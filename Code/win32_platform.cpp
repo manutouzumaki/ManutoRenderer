@@ -29,6 +29,8 @@ struct window
 
 static bool GlobalRunning;
 static HINSTANCE GlobalInstance;
+static int GlobalWindowPosX;
+static int GlobalWindowPosY;
 
 // function that pass data from the game to the platform specific layer 
 static window *
@@ -69,6 +71,11 @@ LRESULT CALLBACK WndProc(HWND   Window,
         {
             GlobalRunning = false;
         }break;
+        case WM_MOVE:
+        {
+            GlobalWindowPosX = (int)(short)LOWORD(LParam); 
+            GlobalWindowPosY = (int)(short)HIWORD(LParam); 
+        }
         default:
         {
            Result = DefWindowProcA(Window, Message, WParam, LParam);
@@ -97,11 +104,19 @@ ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_b
             case WM_MBUTTONDOWN:
             case WM_MBUTTONUP:
             {
-                ActualMouseButtons->Buttons[0].IsDown = ((Message.wParam & MK_LBUTTON) != 0);
-                ActualMouseButtons->Buttons[1].IsDown = ((Message.wParam & MK_MBUTTON) != 0);
-                ActualMouseButtons->Buttons[2].IsDown = ((Message.wParam & MK_RBUTTON) != 0);
-            }break;
 
+                ActualMouseButtons->Buttons[0].IsDown = ((Message.wParam & MK_LBUTTON) != 0);
+                if((Message.wParam & MK_SHIFT) != 0)
+                {
+                    ActualMouseButtons->Buttons[3].IsDown = ((Message.wParam & MK_MBUTTON) != 0);
+                }
+                else
+                {
+                    ActualMouseButtons->Buttons[1].IsDown = ((Message.wParam & MK_MBUTTON) != 0);
+                }
+                ActualMouseButtons->Buttons[2].IsDown = ((Message.wParam & MK_RBUTTON) != 0);
+
+            }break;
             default:
             {
                 TranslateMessage(&Message);
@@ -110,7 +125,7 @@ ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_b
         }
     }
     for(int MouseIndex = 0;
-        MouseIndex < 3;
+        MouseIndex < 4;
         ++MouseIndex)
     {
         if(OldMouseButtons->Buttons[MouseIndex].IsDown)
@@ -146,7 +161,7 @@ PLATFORM_CREATE_WINDOW(PlatformCreateWindow)
     Window->Window = CreateWindowA(WindowName,
                                   WindowName,
                                   WS_OVERLAPPEDWINDOW,
-                                  CW_USEDEFAULT, CW_USEDEFAULT,
+                                  0, 0,
                                   Rect.right - Rect.left,
                                   Rect.bottom - Rect.top,
                                   NULL, NULL, GlobalInstance, NULL);
@@ -202,6 +217,16 @@ PLATFORM_FREE_MEMORY(PlatformFreeMemory)
     VirtualFree(Memory, 0, MEM_RELEASE);
 }
 
+PLATFORM_SHOW_CURSOR(PlatformShowCursor)
+{
+    ShowCursor(Value);
+}
+
+PLATFORM_SET_CURSOR_POSITION(PlatformSetCursorPosition)
+{
+    SetCursorPos(PosX, PosY);
+}
+
 int WINAPI WinMain(HINSTANCE Instance,
                    HINSTANCE PrevInstance,
                    LPSTR     lpCmdLine,
@@ -234,7 +259,10 @@ int WINAPI WinMain(HINSTANCE Instance,
         GetClientRect(Window->Window, &ClientDimensions);
         unsigned int Width  = ClientDimensions.right - ClientDimensions.left;
         unsigned int Height = ClientDimensions.bottom - ClientDimensions.top;
-        
+    
+        //AppInput.MouseDefaultX = WND_WIDTH / 2;
+        //AppInput.MouseDefaultY = WND_HEIGHT / 2;
+
         GlobalRunning = true;
         ShowWindow(Window->Window, nShowCmd);
         
@@ -267,6 +295,8 @@ int WINAPI WinMain(HINSTANCE Instance,
 
             ProcesInputMessages(&AppInput, &ActualMouseButtons, &OldMouseButtons);
             AppInput.MouseButtons = &ActualMouseButtons;
+            AppInput.MouseDefaultX = (WND_WIDTH / 2) + GlobalWindowPosX;
+            AppInput.MouseDefaultY = (WND_HEIGHT / 2) + GlobalWindowPosY;
 
             // Render...
             float ClearColor[4] = {0.0f, 0.0f, 0.3f, 1.0f};
