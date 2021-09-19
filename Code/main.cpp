@@ -103,11 +103,7 @@ ClickOnBoundingSphere(v3 CameraPos, mat4 View, mat4 Proj,
 static void
 UpdateCameraView(arc_camera *Camera, app_input *Input)
 {
-    Camera->Distance = LengthV3(Camera->Target - Camera->Position);
-    Camera->Front = NormalizeV3(Camera->Target - Camera->Position);
-    Camera->Right = NormalizeV3(CrossV3({0.0f, 1.0f, 0.0f}, Camera->Front));
-    Camera->Up = NormalizeV3(CrossV3(Camera->Front, Camera->Right));
-    
+    Camera->RealUp = NormalizeV3(CrossV3(Camera->Front, Camera->Right));
     Camera->View = ViewMat4(Camera->Position, Camera->Position + Camera->Front, Camera->Up);
 }
 
@@ -139,9 +135,13 @@ GameSetUp(app_memory *Memory)
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             
-            GameState->Camera.Position = {1.0f, 1.0f, 0.0f};
-            GameState->Camera.Target = {0.0f, 10.0f,  10.0f};
+            GameState->Camera.Position = {0.0f, 0.0f, 1.0f};
+            GameState->Camera.Target = {0.0f, 0.0f, -2.0f};
+            GameState->Camera.Front = NormalizeV3(GameState->Camera.Target - GameState->Camera.Position);
             GameState->Camera.PosRelativeToTarget = GameState->Camera.Target - GameState->Camera.Position;
+            GameState->Camera.Up = {0.0f, 1.0f, 0.0f};
+            GameState->Camera.Yaw = ToRad(-90.0f);
+            GameState->Camera.Pitch = 0.0f;
 
             mat4 World = IdentityMat4();
             GameState->Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
@@ -169,26 +169,34 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
     {
         static float MouseOffsetX = 0;
         static float MouseOffsetY = 0;
-        MouseOffsetX += (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
-        MouseOffsetY += (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime;
-        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
-        
-        char Buffer[100];
-        sprintf(Buffer, "Y: %f\n", MouseOffsetY);
-        OutputDebugString(Buffer);
-        if(MouseOffsetY >= 1.9f)
+        MouseOffsetX = (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
+        MouseOffsetY = (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime; 
+        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY); 
+
+        GameState->Camera.Yaw -= MouseOffsetX *0.5f;
+        GameState->Camera.Pitch -= MouseOffsetY *0.5f;
+
+        if(GameState->Camera.Pitch > ToRad(89.0f))
         {
-            MouseOffsetY = 1.9f;
-        } 
-        if(MouseOffsetY <= -0.4f)
-        {
-            MouseOffsetY = -0.4f;
+            GameState->Camera.Pitch = ToRad(89.0f);
         }
+        if(GameState->Camera.Pitch < ToRad(-89.0f))
+        {
+            GameState->Camera.Pitch = ToRad(-89.0f);
+        }
+
+        v3 Front = {};
+        Front.X = cosf(GameState->Camera.Yaw) * cosf(GameState->Camera.Pitch);
+        Front.Y = sinf(GameState->Camera.Pitch);
+        Front.Z = sinf(GameState->Camera.Yaw) * cosf(GameState->Camera.Pitch);
+        GameState->Camera.Front= NormalizeV3(Front);
+        GameState->Camera.Right = NormalizeV3(CrossV3(GameState->Camera.Up, GameState->Camera.Front));
+        
         v4 CameraRelativeToTarget4V = {GameState->Camera.PosRelativeToTarget.X,
                                        GameState->Camera.PosRelativeToTarget.Y,
                                        GameState->Camera.PosRelativeToTarget.Z, 1.0f};        
-        CameraRelativeToTarget4V = RotationYMat(-MouseOffsetX) * CameraRelativeToTarget4V;
-        CameraRelativeToTarget4V = RotationV3Mat({GameState->Camera.Right}, -MouseOffsetY) * CameraRelativeToTarget4V;
+        CameraRelativeToTarget4V = RotationYMat(GameState->Camera.Yaw + ToRad(90.0f)) * CameraRelativeToTarget4V;
+        CameraRelativeToTarget4V = RotationV3Mat({GameState->Camera.Right}, GameState->Camera.Pitch) * CameraRelativeToTarget4V;
         v3 Result = {};
         Result.X = CameraRelativeToTarget4V.X;
         Result.Y = CameraRelativeToTarget4V.Y;
@@ -196,6 +204,31 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
         GameState->Camera.Position = GameState->Camera.Target - Result;
     }
     if(MouseOnUp(Input, MIDDLE_CLICK))
+    {
+        PlatformShowCursor(true);
+    }
+
+    if(MouseOnClick(Input, SHIFT_MIDDLE_CLICK))
+    {
+        PlatformShowCursor(false);
+        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
+    }
+    else if(MouseDown(Input, SHIFT_MIDDLE_CLICK))
+    {
+        static float MouseOffsetX = 0;
+        static float MouseOffsetY = 0;
+        MouseOffsetX = (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
+        MouseOffsetY = (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime; 
+        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY); 
+        
+        GameState->Camera.Position = GameState->Camera.Position - GameState->Camera.Right * MouseOffsetX;
+        GameState->Camera.Position = GameState->Camera.Position + GameState->Camera.RealUp * MouseOffsetY;
+        GameState->Camera.Target = GameState->Camera.Target - GameState->Camera.Right * MouseOffsetX;
+        GameState->Camera.Target = GameState->Camera.Target + GameState->Camera.RealUp * MouseOffsetY;
+        GameState->Camera.Front = NormalizeV3(GameState->Camera.Target - GameState->Camera.Position);
+
+    }
+    if(MouseOnUp(Input, SHIFT_MIDDLE_CLICK))
     {
         PlatformShowCursor(true);
     }
