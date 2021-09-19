@@ -49,6 +49,7 @@ StringCompare(char *A, char *B, int Size)
 
 struct arc_camera
 {
+    v3 PosRelativeToTarget;
     v3 Position;
     v3 Up;
     v3 Right;

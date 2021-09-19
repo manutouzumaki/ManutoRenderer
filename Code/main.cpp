@@ -139,8 +139,9 @@ GameSetUp(app_memory *Memory)
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             
-            GameState->Camera.Position = {0.0f, 0.0f, 10.0f};
-            GameState->Camera.Target = {0.0f, 0.0f,  0.0f};
+            GameState->Camera.Position = {1.0f, 1.0f, 0.0f};
+            GameState->Camera.Target = {0.0f, 10.0f,  10.0f};
+            GameState->Camera.PosRelativeToTarget = GameState->Camera.Target - GameState->Camera.Position;
 
             mat4 World = IdentityMat4();
             GameState->Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
@@ -171,24 +172,28 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
         MouseOffsetX += (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
         MouseOffsetY += (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime;
         PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
-
-        // rotate camera around y axis
-        v4 OGPosition = {1.0f, 0.0f, 0.0f, 1.0f}; 
+        
         char Buffer[100];
-        sprintf(Buffer, "XOffset %f\n", MouseOffsetX);
+        sprintf(Buffer, "Y: %f\n", MouseOffsetY);
         OutputDebugString(Buffer);
-
-        v4 CameraDirectionV4 = RotationV3Mat({0.0f, 1.0f, 0.0f}, -MouseOffsetX) * OGPosition;
-        CameraDirectionV4 = RotationV3Mat(GameState->Camera.Right, -MouseOffsetY) * CameraDirectionV4;
+        if(MouseOffsetY >= 1.9f)
+        {
+            MouseOffsetY = 1.9f;
+        } 
+        if(MouseOffsetY <= -0.4f)
+        {
+            MouseOffsetY = -0.4f;
+        }
+        v4 CameraRelativeToTarget4V = {GameState->Camera.PosRelativeToTarget.X,
+                                       GameState->Camera.PosRelativeToTarget.Y,
+                                       GameState->Camera.PosRelativeToTarget.Z, 1.0f};        
+        CameraRelativeToTarget4V = RotationYMat(-MouseOffsetX) * CameraRelativeToTarget4V;
+        CameraRelativeToTarget4V = RotationV3Mat({GameState->Camera.Right}, -MouseOffsetY) * CameraRelativeToTarget4V;
         v3 Result = {};
-        Result.X = CameraDirectionV4.X;
-        Result.Y = CameraDirectionV4.Y;
-        Result.Z = CameraDirectionV4.Z;
-        Result = NormalizeV3(Result);
-        GameState->Camera.Position = Result * GameState->Camera.Distance; 
-
-        //GameState->Camera.Position.X = (cosf(-MouseOffsetX) * GameState->Camera.Distance) + GameState->Camera.Target.X;
-        //GameState->Camera.Position.Z = (sinf(-MouseOffsetX) * GameState->Camera.Distance) + GameState->Camera.Target.Z; 
+        Result.X = CameraRelativeToTarget4V.X;
+        Result.Y = CameraRelativeToTarget4V.Y;
+        Result.Z = CameraRelativeToTarget4V.Z;
+        GameState->Camera.Position = GameState->Camera.Target - Result;
     }
     if(MouseOnUp(Input, MIDDLE_CLICK))
     {
@@ -197,8 +202,7 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
 
     if(MouseDown(Input, RIGHT_CLICK))
     {
-        GameState->Camera.Position = GameState->Camera.Position + GameState->Camera.Up * DeltaTime;
-        GameState->Camera.Target = GameState->Camera.Target + GameState->Camera.Up * DeltaTime;
+        GameState->Camera.Position = GameState->Camera.Position + GameState->Camera.Front * DeltaTime;
     }
 }
 
