@@ -341,6 +341,92 @@ LoadCube(renderer *Renderer, arena *Arena)
 }
 
 static mesh *
+LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
+            renderer *Renderer, arena *Arena)
+{
+    mesh *Mesh = (mesh *)PushStruct(Arena, mesh);
+    int VerticesCount = (ColumsCount + 1) * (RowsCount + 1);
+    // get memory for the terrain mesh
+    float *Vertices = (float *)PushArray(Arena, VerticesCount*3*2*3, float); 
+    int *Indices = (int *)PushArray(Arena, (ColumsCount*RowsCount*6), int);
+    // set up the vertices
+    float *VerticesPtr = Vertices;
+    for(int ZPos = 0;
+        ZPos < RowsCount + 1;
+        ++ZPos)
+    {
+        for(int XPos = 0;
+            XPos < ColumsCount + 1;
+            ++XPos)
+        {
+            // Vertex position
+            *VerticesPtr++ = X + (XPos * Size);
+            *VerticesPtr++ = Y;
+            *VerticesPtr++ = Z + (ZPos * Size);
+            // Vertex uvs
+            *VerticesPtr++ = XPos;
+            *VerticesPtr++ = ZPos;
+            // Vertex normals
+            *VerticesPtr++ = 0.0f;
+            *VerticesPtr++ = 1.0f;
+            *VerticesPtr++ = 0.0f;
+        }
+    }
+    
+    // set up the indices
+    int *IndicesPtr = Indices;
+    for(int ZPos = 0;
+        ZPos < RowsCount;
+        ++ZPos)
+    {
+        for(int XPos = 0;
+            XPos < ColumsCount;
+            ++XPos)
+        {
+            *IndicesPtr++ = ((ZPos+1)*(ColumsCount + 1)) + (XPos+0);
+            *IndicesPtr++ = ((ZPos+0)*(ColumsCount + 1)) + (XPos+1); 
+            *IndicesPtr++ = ((ZPos+0)*(ColumsCount + 1)) + (XPos+0);
+
+            *IndicesPtr++ = ((ZPos+1)*(ColumsCount + 1)) + (XPos+1);
+            *IndicesPtr++ = ((ZPos+0)*(ColumsCount + 1)) + (XPos+1);
+            *IndicesPtr++ = ((ZPos+1)*(ColumsCount + 1)) + (XPos+0);
+        }
+    }
+
+    // create DirectX11 Mesh
+    Mesh->VertexCount = VerticesCount;
+    D3D11_BUFFER_DESC VertexBufferDesc = {};
+    VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;  // this is going to be const for now then i will chage it to dynamic buffer
+    VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    VertexBufferDesc.ByteWidth = sizeof(float)*VerticesCount*3*2*3;
+    // Add the Vertices
+    D3D11_SUBRESOURCE_DATA ResourceData = {};
+    ResourceData.pSysMem = Vertices;
+    // Create the Buffer
+    HRESULT Result = Renderer->Device->CreateBuffer(&VertexBufferDesc, &ResourceData, &Mesh->VertexBuffer);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("Vertex Buffer Created!\n");
+    }
+    // Create Index Buffer
+    Mesh->IndexCount = ColumsCount*RowsCount*6;
+    D3D11_BUFFER_DESC IndexBufferDesc = {};
+    IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    IndexBufferDesc.ByteWidth = sizeof(int)*ColumsCount*RowsCount*6;
+    IndexBufferDesc.CPUAccessFlags = 0;
+    ResourceData.pSysMem = Indices;
+
+    Result = Renderer->Device->CreateBuffer(&IndexBufferDesc, &ResourceData, &Mesh->IndexBuffer);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("Index Buffer Created!\n");
+    }
+
+    return Mesh;
+}
+
+static mesh *
 LoadMesh(char *OBJFileName, renderer *Renderer, arena *Arena)
 {
     mesh *Mesh = (mesh *)PushStruct(Arena, mesh);

@@ -60,7 +60,6 @@ GetV3RayFrom2DPos(int XPos, int YPos, mat4 View, mat4 Proj)
 
     v3 Result = {RayWorld.X, RayWorld.Y, RayWorld.Z};
     return Result;
-
 }
 
 static v3
@@ -221,6 +220,9 @@ GameSetUp(app_memory *Memory)
             GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
+            GameState->TerrainTexture = LoadTexture("../Data/grass.bmp", GameState->Renderer, &GameState->FileArena);
+            
+            GameState->Terrain = LoadTerrain(-20.0f, 0.0f, -20.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
 
             InitializeCamera(&GameState->Camera);
 
@@ -286,7 +288,12 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     World = TranslationMat4(GameState->Camera.Target) * ScaleMat4({0.3f, 0.3f, 0.3f});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->SphereTexture, GameState->Renderer);
-    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer); 
+    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
+
+    World = TranslationMat4({0.0f, 0.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    SetTexture(GameState->TerrainTexture, GameState->Renderer);
+    RenderMeshIndexed(GameState->Terrain, GameState->Shader, GameState->Renderer);
 }
 
 

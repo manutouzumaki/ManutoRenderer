@@ -67,6 +67,9 @@ struct game_state
     mesh *SphereMesh;
     texture *SphereTexture;
 
+    mesh *Terrain;
+    texture *TerrainTexture;
+
 
     bounding_sphere BoundingSpheres[2];
     
