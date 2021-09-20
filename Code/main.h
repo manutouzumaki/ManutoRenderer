@@ -57,9 +57,7 @@ struct game_state
 
     shader *Shader;
 
-    mat4 Proj;
-
-    
+    mat4 Proj; 
     arc_camera Camera;
 
     mesh *TreeMesh;

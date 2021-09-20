@@ -63,42 +63,6 @@ GetV3RayFrom2DPos(int XPos, int YPos, mat4 View, mat4 Proj)
 
 }
 
-static bool 
-ClickOnBoundingSphere(v3 CameraPos, mat4 View, mat4 Proj,
-                      bounding_sphere BoundingSphere, 
-                      app_input *Input, int MouseButton)
-{
-    if(MouseOnClick(Input, MouseButton))
-    {
-        float R = BoundingSphere.Radius;
-        v3 C = BoundingSphere.Position;
-        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, View, Proj);
-        D = NormalizeV3(D);
-        v3 O = CameraPos;
-
-        float BF = DotV3(D, (O - C));
-        float CF = DotV3((O - C),(O - C)) - (R*R);
-        
-        float TF = -1;
-        if(((BF*BF) - CF) >= 0)
-        {
-            float T0 = (-1.0f*BF) - sqrtf((BF*BF) - CF);
-            float T1 = (-1.0f*BF) + sqrtf((BF*BF) - CF);
-
-            if(T0 < T1)
-            {
-                TF = T0;
-            }
-            else
-            {
-                TF = T1; 
-            }
-        }
-        return TF >= 0;
-    }
-    return false;
-}
-
 static v3
 MouseRayPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, mat4 Proj)
 {
@@ -118,9 +82,87 @@ MouseRayPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, 
     return MousePositionOnPlane;
 }
 
+static float
+MouseRaySphereIntersection(v3 CameraPos, mat4 View, mat4 Proj,
+                      bounding_sphere BoundingSphere, 
+                      app_input *Input)
+{
+    float R = BoundingSphere.Radius;
+    v3 C = BoundingSphere.Position;
+    v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, View, Proj);
+    D = NormalizeV3(D);
+    v3 O = CameraPos;
+
+    float BF = DotV3(D, (O - C));
+    float CF = DotV3((O - C),(O - C)) - (R*R);
+    
+    float TF = -1;
+    if(((BF*BF) - CF) >= 0)
+    {
+        float T0 = (-1.0f*BF) - sqrtf((BF*BF) - CF);
+        float T1 = (-1.0f*BF) + sqrtf((BF*BF) - CF);
+
+        if(T0 < T1)
+        {
+            TF = T0;
+        }
+        else
+        {
+            TF = T1; 
+        }
+    }
+    return TF;    
+}
+
+static int
+SearchCloserMesh(float *TValues, int TValuesCount)
+{
+    int Result = 0;
+    float SmallValue = TValues[0];
+    for(int I = 0;
+        I < TValuesCount;
+        ++I)
+    {
+        if((SmallValue > TValues[I] || SmallValue < 0.0f) && TValues[I] > 0)
+        {
+            SmallValue = TValues[I];
+            Result = I;
+        }
+    }
+    if(SmallValue < 0)
+    {
+        Result = -1;
+    }
+    return Result;
+}
+
+static void
+ProcessMeshShouldMove(app_input *Input, game_state *GameState)
+{
+    float TValues[2];  // TODO: make the number of meshes not be fix
+    for(int Index = 0;
+        Index < 2;
+        ++Index)
+    {
+        TValues[Index] = MouseRaySphereIntersection(GameState->Camera.Position,
+                         GameState->Camera.View, GameState->Proj,
+                         GameState->BoundingSpheres[Index], Input);
+    }
+    int Index = SearchCloserMesh(TValues, 2);
+    if(Index >= 0)
+    {
+        GameState->SphereSelected = &GameState->BoundingSpheres[Index];
+        GameState->SpherePositionWhenClick = GameState->SphereSelected->Position;
+        v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
+        GameState->Offset = MousePositionOnPlane - GameState->SphereSelected->Position;
+        GameState->MoveMesh = true;
+    }
+}
+
 static void
 ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
 {
+    // handle camera movement
     if(MouseOnClick(Input, MIDDLE_CLICK))
     {
         PlatformShowCursor(false);
@@ -141,6 +183,15 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
         PlatformShowCursor(true);
     }
     ProcessCameraDistance(Input, &GameState->Camera, DeltaTime);
+    // handle meshes movement
+    if(MouseOnClick(Input, LEFT_CLICK))
+    {
+        ProcessMeshShouldMove(Input, GameState);
+    }
+    if(MouseOnUp(Input, LEFT_CLICK))
+    {
+        GameState->MoveMesh = false;
+    }
 }
 
 static void
@@ -199,30 +250,12 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     SetViewMat4(GameState->Renderer, GameState->Camera.View);
     
     // move selected mesh on the camera plane...
-    for(int Index = 0;
-        Index < 2;
-        ++Index)
-    {
-        if(ClickOnBoundingSphere(GameState->Camera.Position, GameState->Camera.View, GameState->Proj,
-                                 GameState->BoundingSpheres[Index], Input, LEFT_CLICK))
-        {
-            GameState->SphereSelected = &GameState->BoundingSpheres[Index];
-            GameState->SpherePositionWhenClick = GameState->SphereSelected->Position;
-            v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
-            GameState->Offset = MousePositionOnPlane - GameState->SphereSelected->Position;
-            GameState->MoveMesh = true;
-        }
-    }
-    if(MouseOnUp(Input, LEFT_CLICK))
-    {
-        GameState->MoveMesh = false;
-    }
     if(GameState->MoveMesh)
     {
         v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
         GameState->SphereSelected->Position = MousePositionOnPlane - GameState->Offset;
-    } 
-
+    }
+    
     // Render...
     SetFillType(GameState->Renderer, WIREFRAME);
 
