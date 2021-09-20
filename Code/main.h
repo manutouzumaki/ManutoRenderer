@@ -15,7 +15,7 @@
 #define LEFT_CLICK 0
 #define MIDDLE_CLICK 1
 #define RIGHT_CLICK 2
-#define SHIFT_MIDDLE_CLICK 3
+#define SHIFT_CLICK 3
 
 #define SOLID 0
 #define WIREFRAME 1
@@ -47,21 +47,6 @@ StringCompare(char *A, char *B, int Size)
     return Result;
 }
 
-struct arc_camera
-{
-    mat4 View;
-    v3 Target;
-    v3 Position;
-    v3 Front;
-    v3 Up;
-    v3 Right;
-    v3 RealUp; 
-    v3 PosRelativeToTarget;
-    float Yaw;
-    float Pitch;
-    float Distance;
-};
-
 struct game_state
 {
     window *Window;
@@ -87,6 +72,7 @@ struct game_state
 
     bounding_sphere BoundingSpheres[2];
     
+    bool MoveMesh; 
     bounding_sphere *SphereSelected;
     v3 SpherePositionWhenClick;
     v3 Offset;

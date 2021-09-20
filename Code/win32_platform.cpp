@@ -8,12 +8,14 @@
 #include "mesh.h"
 #include "bounding_volumes.h"
 #include "platform.h"
+#include "arc_camera.h"
 #include "main.h"
 
 #include "arena.cpp"
 #include "bitmap.cpp"
 #include "mesh.cpp"
 #include "bounding_volumes.cpp"
+#include "arc_camera.cpp"
 
 struct window
 {
@@ -104,17 +106,10 @@ ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_b
             case WM_MBUTTONDOWN:
             case WM_MBUTTONUP:
             {
-
                 ActualMouseButtons->Buttons[0].IsDown = ((Message.wParam & MK_LBUTTON) != 0);
-                if((Message.wParam & MK_SHIFT) != 0)
-                {
-                    ActualMouseButtons->Buttons[3].IsDown = ((Message.wParam & MK_MBUTTON) != 0);
-                }
-                else
-                {
-                    ActualMouseButtons->Buttons[1].IsDown = ((Message.wParam & MK_MBUTTON) != 0);
-                }
+                ActualMouseButtons->Buttons[1].IsDown = ((Message.wParam & MK_MBUTTON) != 0);
                 ActualMouseButtons->Buttons[2].IsDown = ((Message.wParam & MK_RBUTTON) != 0);
+                ActualMouseButtons->Buttons[3].IsDown = ((Message.wParam & MK_SHIFT) != 0);
 
             }break;
             case WM_MOUSEWHEEL:

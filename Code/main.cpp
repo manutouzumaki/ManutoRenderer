@@ -24,7 +24,6 @@ MouseOnUp(app_input *Input, int MouseButton)
     return false;
 }
 
-
 static bool
 MouseDown(app_input *Input, int MouseButton)
 {
@@ -120,10 +119,28 @@ MouseRayPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, 
 }
 
 static void
-UpdateCameraView(arc_camera *Camera, app_input *Input)
+ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
 {
-    Camera->RealUp = NormalizeV3(CrossV3(Camera->Front, Camera->Right));
-    Camera->View = ViewMat4(Camera->Position, Camera->Position + Camera->Front, Camera->Up);
+    if(MouseOnClick(Input, MIDDLE_CLICK))
+    {
+        PlatformShowCursor(false);
+        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
+    }
+    else if(MouseDown(Input, MIDDLE_CLICK) && !MouseDown(Input, SHIFT_CLICK))
+    {
+        // click the middle button to rotate the camera around
+        ProcessCameraRotation(Input, &GameState->Camera, DeltaTime);
+    }
+    else if(MouseDown(Input, MIDDLE_CLICK) && MouseDown(Input, SHIFT_CLICK))
+    {
+        // click shift and the middle button to move the camera around
+        ProcessCameraMovement(Input, &GameState->Camera, DeltaTime);
+    }
+    if(MouseOnUp(Input, MIDDLE_CLICK))
+    {
+        PlatformShowCursor(true);
+    }
+    ProcessCameraDistance(Input, &GameState->Camera, DeltaTime);
 }
 
 static void
@@ -153,16 +170,8 @@ GameSetUp(app_memory *Memory)
             GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
-            
-            GameState->Camera.Position = {0.0f, 0.0f, 1.0f};
-            GameState->Camera.Target = {0.0f, 0.0f, -10.0f};
-            GameState->Camera.Front = NormalizeV3(GameState->Camera.Target - GameState->Camera.Position);
-            GameState->Camera.PosRelativeToTarget = GameState->Camera.Target - GameState->Camera.Position;
-            GameState->Camera.Up = {0.0f, 1.0f, 0.0f};
-            GameState->Camera.Right = NormalizeV3(CrossV3(GameState->Camera.Up, GameState->Camera.Front));
-            GameState->Camera.RealUp = {0.0f, 1.0f, 0.0f};
-            GameState->Camera.Yaw = ToRad(-90.0f);
-            GameState->Camera.Pitch = 0.0f;
+
+            InitializeCamera(&GameState->Camera);
 
             mat4 World = IdentityMat4();
             GameState->Proj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
@@ -177,89 +186,7 @@ GameSetUp(app_memory *Memory)
         }
     }   
 }
-   
-static void
-ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
-{
-    if(MouseOnClick(Input, MIDDLE_CLICK))
-    {
-        PlatformShowCursor(false);
-        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
-    }
-    else if(MouseDown(Input, MIDDLE_CLICK))
-    {
-        float MouseOffsetX = 0;
-        float MouseOffsetY = 0;
-        MouseOffsetX = (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
-        MouseOffsetY = (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime; 
-        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY); 
 
-        GameState->Camera.Yaw -= MouseOffsetX *0.5f;
-        GameState->Camera.Pitch -= MouseOffsetY *0.5f;
-
-        if(GameState->Camera.Pitch > ToRad(89.0f))
-        {
-            GameState->Camera.Pitch = ToRad(89.0f);
-        }
-        if(GameState->Camera.Pitch < ToRad(-89.0f))
-        {
-            GameState->Camera.Pitch = ToRad(-89.0f);
-        }
-
-        v3 Front = {};
-        Front.X = cosf(GameState->Camera.Yaw) * cosf(GameState->Camera.Pitch);
-        Front.Y = sinf(GameState->Camera.Pitch);
-        Front.Z = sinf(GameState->Camera.Yaw) * cosf(GameState->Camera.Pitch);
-        GameState->Camera.Front= NormalizeV3(Front);
-        GameState->Camera.Right = NormalizeV3(CrossV3(GameState->Camera.Up, GameState->Camera.Front));
-                
-        v4 CameraRelativeToTarget4V = V3ToV4(GameState->Camera.PosRelativeToTarget, 1.0f);        
-        CameraRelativeToTarget4V = RotationYMat(GameState->Camera.Yaw + ToRad(90.0f)) * CameraRelativeToTarget4V;
-        CameraRelativeToTarget4V = RotationV3Mat({GameState->Camera.Right}, GameState->Camera.Pitch) * CameraRelativeToTarget4V;
-        v3 Result = V4ToV3(CameraRelativeToTarget4V);
-        GameState->Camera.Position = GameState->Camera.Target - Result;
-    }
-    if(MouseOnUp(Input, MIDDLE_CLICK))
-    {
-        PlatformShowCursor(true);
-    }
-
-    if(MouseOnClick(Input, SHIFT_MIDDLE_CLICK))
-    {
-        PlatformShowCursor(false);
-        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
-    }
-    else if(MouseDown(Input, SHIFT_MIDDLE_CLICK))
-    {
-        float MouseOffsetX = 0;
-        float MouseOffsetY = 0;
-        MouseOffsetX = (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
-        MouseOffsetY = (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime; 
-        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY); 
-        
-        GameState->Camera.Position = GameState->Camera.Position - GameState->Camera.Right * MouseOffsetX;
-        GameState->Camera.Position = GameState->Camera.Position + GameState->Camera.RealUp * MouseOffsetY;
-        GameState->Camera.Target = GameState->Camera.Target - GameState->Camera.Right * MouseOffsetX;
-        GameState->Camera.Target = GameState->Camera.Target + GameState->Camera.RealUp * MouseOffsetY;
-        GameState->Camera.Front = NormalizeV3(GameState->Camera.Target - GameState->Camera.Position);
-
-    }
-    if(MouseOnUp(Input, SHIFT_MIDDLE_CLICK))
-    {
-        PlatformShowCursor(true);
-    }
-    
-
-    if(Input->MouseWheel != 0)
-    {
-        v3 NewPosition = GameState->Camera.Position + (GameState->Camera.Front * Input->MouseWheel) * DeltaTime; 
-        float NewDistance = LengthV3(GameState->Camera.Target - NewPosition);
-        GameState->Camera.Position = NewPosition;
-        v3 Temp = NormalizeV3(GameState->Camera.PosRelativeToTarget);
-        Temp = Temp * NewDistance;
-        GameState->Camera.PosRelativeToTarget = Temp;
-    }
-}
 
 static void
 GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
@@ -271,8 +198,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     UpdateCameraView(&GameState->Camera, Input);
     SetViewMat4(GameState->Renderer, GameState->Camera.View);
     
-
-    static bool MoveMesh = false;
+    // move selected mesh on the camera plane...
     for(int Index = 0;
         Index < 2;
         ++Index)
@@ -284,19 +210,18 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
             GameState->SpherePositionWhenClick = GameState->SphereSelected->Position;
             v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
             GameState->Offset = MousePositionOnPlane - GameState->SphereSelected->Position;
-            MoveMesh = true;
+            GameState->MoveMesh = true;
         }
     }
     if(MouseOnUp(Input, LEFT_CLICK))
     {
-        MoveMesh = false;
+        GameState->MoveMesh = false;
     }
-    if(MoveMesh)
+    if(GameState->MoveMesh)
     {
         v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
         GameState->SphereSelected->Position = MousePositionOnPlane - GameState->Offset;
-    }
-  
+    } 
 
     // Render...
     SetFillType(GameState->Renderer, WIREFRAME);
