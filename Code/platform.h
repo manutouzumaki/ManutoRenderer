@@ -49,6 +49,7 @@ struct app_input
     int MouseX, MouseY;
     int MouseDefaultX, MouseDefaultY;
     mouse_buttons *MouseButtons;   
+    int MouseWheel;
 };
 
 #endif

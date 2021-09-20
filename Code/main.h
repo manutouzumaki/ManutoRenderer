@@ -49,23 +49,17 @@ StringCompare(char *A, char *B, int Size)
 
 struct arc_camera
 {
+    mat4 View;
     v3 Target;
     v3 Position;
     v3 Front;
     v3 Up;
-    v3 RealUp;
     v3 Right;
-    
+    v3 RealUp; 
     v3 PosRelativeToTarget;
-
     float Yaw;
     float Pitch;
-
-
     float Distance;
-    
-    mat4 View;
-
 };
 
 struct game_state
@@ -82,9 +76,6 @@ struct game_state
 
     
     arc_camera Camera;
-    //mat4 View;
-    //v3 CameraPos;
-    //v3 CameraTarget;
 
     mesh *TreeMesh;
     texture *TreeTexture;

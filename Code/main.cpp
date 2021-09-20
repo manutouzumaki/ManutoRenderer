@@ -100,6 +100,25 @@ ClickOnBoundingSphere(v3 CameraPos, mat4 View, mat4 Proj,
     return false;
 }
 
+static v3
+MouseRayPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, mat4 Proj)
+{
+    v3 C = Camera->Target;
+    v3 O = Camera->Position;
+    v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, Camera->View, Proj);
+    D = NormalizeV3(D);
+    v3 N = C - O;
+    N = NormalizeV3(N);
+    
+    float T = 0;
+    if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
+    {
+        T = DotV3((N*-1.0f), (O - PlaneOffset)) / DotV3(N, D);
+    }
+    v3 MousePositionOnPlane = LerpV3(O, D, T);
+    return MousePositionOnPlane;
+}
+
 static void
 UpdateCameraView(arc_camera *Camera, app_input *Input)
 {
@@ -136,10 +155,12 @@ GameSetUp(app_memory *Memory)
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             
             GameState->Camera.Position = {0.0f, 0.0f, 1.0f};
-            GameState->Camera.Target = {0.0f, 0.0f, -2.0f};
+            GameState->Camera.Target = {0.0f, 0.0f, -10.0f};
             GameState->Camera.Front = NormalizeV3(GameState->Camera.Target - GameState->Camera.Position);
             GameState->Camera.PosRelativeToTarget = GameState->Camera.Target - GameState->Camera.Position;
             GameState->Camera.Up = {0.0f, 1.0f, 0.0f};
+            GameState->Camera.Right = NormalizeV3(CrossV3(GameState->Camera.Up, GameState->Camera.Front));
+            GameState->Camera.RealUp = {0.0f, 1.0f, 0.0f};
             GameState->Camera.Yaw = ToRad(-90.0f);
             GameState->Camera.Pitch = 0.0f;
 
@@ -167,8 +188,8 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
     }
     else if(MouseDown(Input, MIDDLE_CLICK))
     {
-        static float MouseOffsetX = 0;
-        static float MouseOffsetY = 0;
+        float MouseOffsetX = 0;
+        float MouseOffsetY = 0;
         MouseOffsetX = (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
         MouseOffsetY = (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime; 
         PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY); 
@@ -191,16 +212,11 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
         Front.Z = sinf(GameState->Camera.Yaw) * cosf(GameState->Camera.Pitch);
         GameState->Camera.Front= NormalizeV3(Front);
         GameState->Camera.Right = NormalizeV3(CrossV3(GameState->Camera.Up, GameState->Camera.Front));
-        
-        v4 CameraRelativeToTarget4V = {GameState->Camera.PosRelativeToTarget.X,
-                                       GameState->Camera.PosRelativeToTarget.Y,
-                                       GameState->Camera.PosRelativeToTarget.Z, 1.0f};        
+                
+        v4 CameraRelativeToTarget4V = V3ToV4(GameState->Camera.PosRelativeToTarget, 1.0f);        
         CameraRelativeToTarget4V = RotationYMat(GameState->Camera.Yaw + ToRad(90.0f)) * CameraRelativeToTarget4V;
         CameraRelativeToTarget4V = RotationV3Mat({GameState->Camera.Right}, GameState->Camera.Pitch) * CameraRelativeToTarget4V;
-        v3 Result = {};
-        Result.X = CameraRelativeToTarget4V.X;
-        Result.Y = CameraRelativeToTarget4V.Y;
-        Result.Z = CameraRelativeToTarget4V.Z;
+        v3 Result = V4ToV3(CameraRelativeToTarget4V);
         GameState->Camera.Position = GameState->Camera.Target - Result;
     }
     if(MouseOnUp(Input, MIDDLE_CLICK))
@@ -215,8 +231,8 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
     }
     else if(MouseDown(Input, SHIFT_MIDDLE_CLICK))
     {
-        static float MouseOffsetX = 0;
-        static float MouseOffsetY = 0;
+        float MouseOffsetX = 0;
+        float MouseOffsetY = 0;
         MouseOffsetX = (Input->MouseX - (WND_WIDTH/2.0f)) * DeltaTime;
         MouseOffsetY = (Input->MouseY - (WND_HEIGHT/2.0f)) * DeltaTime; 
         PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY); 
@@ -232,10 +248,16 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
     {
         PlatformShowCursor(true);
     }
+    
 
-    if(MouseDown(Input, RIGHT_CLICK))
+    if(Input->MouseWheel != 0)
     {
-        GameState->Camera.Position = GameState->Camera.Position + GameState->Camera.Front * DeltaTime;
+        v3 NewPosition = GameState->Camera.Position + (GameState->Camera.Front * Input->MouseWheel) * DeltaTime; 
+        float NewDistance = LengthV3(GameState->Camera.Target - NewPosition);
+        GameState->Camera.Position = NewPosition;
+        v3 Temp = NormalizeV3(GameState->Camera.PosRelativeToTarget);
+        Temp = Temp * NewDistance;
+        GameState->Camera.PosRelativeToTarget = Temp;
     }
 }
 
@@ -256,54 +278,23 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
         ++Index)
     {
         if(ClickOnBoundingSphere(GameState->Camera.Position, GameState->Camera.View, GameState->Proj,
-                                 GameState->BoundingSpheres[Index], 
-                                 Input, LEFT_CLICK))
+                                 GameState->BoundingSpheres[Index], Input, LEFT_CLICK))
         {
             GameState->SphereSelected = &GameState->BoundingSpheres[Index];
             GameState->SpherePositionWhenClick = GameState->SphereSelected->Position;
-            v3 C = GameState->Camera.Target;
-            v3 O = GameState->Camera.Position;
-            v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->Camera.View, GameState->Proj);
-            D = NormalizeV3(D);
-            v3 N = C - O;
-            N = NormalizeV3(N);
-            
-            float T = 0;
-            if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
-            {
-                T = DotV3((N*-1.0f), (O - GameState->SpherePositionWhenClick)) / DotV3(N, D);
-            }
-            v3 MousePositionOnPlane = LerpV3(O, D, T);
+            v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
             GameState->Offset = MousePositionOnPlane - GameState->SphereSelected->Position;
             MoveMesh = true;
         }
     }
-
     if(MouseOnUp(Input, LEFT_CLICK))
     {
         MoveMesh = false;
     }
-
-    if(MouseOnClick(Input, SHIFT_MIDDLE_CLICK))
-    {
-        OutputDebugString("Shift Middle Click!!\n");
-    }
-
     if(MoveMesh)
     {
-        v3 C = GameState->Camera.Target;
-        v3 O = GameState->Camera.Position;
-        v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, GameState->Camera.View, GameState->Proj);
-        D = NormalizeV3(D);
-        v3 N = C - O;
-        N = NormalizeV3(N);
-        
-        float T = 0;
-        if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
-        {
-            T = DotV3((N*-1.0f), (O - GameState->SpherePositionWhenClick)) / DotV3(N, D);
-        }
-        GameState->SphereSelected->Position = LerpV3(O, D, T) - GameState->Offset;
+        v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
+        GameState->SphereSelected->Position = MousePositionOnPlane - GameState->Offset;
     }
   
 

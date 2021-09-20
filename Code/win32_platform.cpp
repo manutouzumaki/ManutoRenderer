@@ -117,6 +117,10 @@ ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_b
                 ActualMouseButtons->Buttons[2].IsDown = ((Message.wParam & MK_RBUTTON) != 0);
 
             }break;
+            case WM_MOUSEWHEEL:
+            {
+                Input->MouseWheel = GET_WHEEL_DELTA_WPARAM(Message.wParam);
+            }break;
             default:
             {
                 TranslateMessage(&Message);
@@ -308,6 +312,7 @@ int WINAPI WinMain(HINSTANCE Instance,
             Renderer->SwapChain->Present(0, 0);
             
             OldMouseButtons = ActualMouseButtons;
+            AppInput.MouseWheel = 0;
             LastCount = ActualCount;
 
         }

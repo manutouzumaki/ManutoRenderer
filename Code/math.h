@@ -93,6 +93,15 @@ v2 operator/(v2& A, float& S)
     return Result;
 }
 
+bool operator==(v3 A, v3 B)
+{
+    bool Result = false;
+    Result = (A.X == B.X &&
+              A.Y == B.Y &&
+              A.Z == B.Z);
+    return Result;
+}
+
 v3 operator+(v3& A, v3& B)
 {
     v3 Result = {};
@@ -192,6 +201,25 @@ mat4 operator*(mat4 M, float S)
             Result.m[Y][X] = M.m[Y][X] * S; 
         }
     }
+    return Result;
+}
+
+v3 V4ToV3(v4 V)
+{
+    v3 Result = {};
+    Result.X = V.X;
+    Result.Y = V.Y;
+    Result.Z = V.Z;
+    return Result;
+}
+
+v4 V3ToV4(v3 V, float W)
+{
+    v4 Result = {};
+    Result.X = V.X;
+    Result.Y = V.Y;
+    Result.Z = V.Z;
+    Result.W = W;
     return Result;
 }
 
