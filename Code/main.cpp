@@ -252,9 +252,9 @@ GameSetUp(app_memory *Memory)
             GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
-            GameState->TerrainTexture = LoadTexture("../Data/grass.bmp", GameState->Renderer, &GameState->FileArena);
+            GameState->TerrainTexture = LoadTexture("../Data/rock.bmp", GameState->Renderer, &GameState->FileArena);
             
-            GameState->Terrain = LoadTerrain(0.0f, 0.0f, 0.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
+            GameState->Terrain = LoadTerrain(-40.0f, 0.0f, -20.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
 
             InitializeCamera(&GameState->Camera);
 
@@ -325,7 +325,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     World = TranslationMat4({0.0f, 0.0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->TerrainTexture, GameState->Renderer);
-    RenderMeshIndexed(GameState->Terrain, GameState->Shader, GameState->Renderer);
+    RenderMeshIndexed(GameState->Terrain->Mesh, GameState->Shader, GameState->Renderer);
 }
 
 

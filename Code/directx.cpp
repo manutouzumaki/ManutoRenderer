@@ -343,17 +343,24 @@ LoadCube(renderer *Renderer, arena *Arena)
     return Mesh;
 }
 
-static mesh *
+static terrain *
 LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
             renderer *Renderer, arena *Arena)
 {
-    mesh *Mesh = (mesh *)PushStruct(Arena, mesh);
+    terrain *Terrain = (terrain *)PushStruct(Arena, terrain);
+    Terrain->X = X;
+    Terrain->Y = Y;
+    Terrain->Z = Z;
+    Terrain->Cols = ColumsCount;
+    Terrain->Rows = RowsCount;
+    Terrain->Size = Size;
     int VerticesCount = (ColumsCount + 1) * (RowsCount + 1);
     // get memory for the terrain mesh
-    Mesh->Vertices = (float *)PushArray(Arena, VerticesCount*3*2*3, float); 
-    Mesh->Indices = (int *)PushArray(Arena, (ColumsCount*RowsCount*6), int);
+    Terrain->Mesh = (mesh *)PushStruct(Arena, mesh);
+    Terrain->Mesh->Vertices = (float *)PushArray(Arena, VerticesCount*3*2*3, float); 
+    Terrain->Mesh->Indices = (int *)PushArray(Arena, (ColumsCount*RowsCount*6), int);
     // set up the vertices
-    float *VerticesPtr = Mesh->Vertices;
+    float *VerticesPtr = Terrain->Mesh->Vertices;
     for(int ZPos = 0;
         ZPos < RowsCount + 1;
         ++ZPos)
@@ -367,8 +374,8 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
             *VerticesPtr++ = Y;
             *VerticesPtr++ = Z + (ZPos * Size);
             // Vertex uvs
-            *VerticesPtr++ = XPos;
-            *VerticesPtr++ = ZPos;
+            *VerticesPtr++ = XPos / 10.0f;
+            *VerticesPtr++ = ZPos / 10.0f;
             // Vertex normals
             *VerticesPtr++ = 0.0f;
             *VerticesPtr++ = 1.0f;
@@ -377,7 +384,7 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     }
     
     // set up the indices
-    int *IndicesPtr = Mesh->Indices;
+    int *IndicesPtr = Terrain->Mesh->Indices;
     for(int ZPos = 0;
         ZPos < RowsCount;
         ++ZPos)
@@ -397,7 +404,7 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     }
 
     // create DirectX11 Mesh
-    Mesh->VertexCount = VerticesCount;
+    Terrain->Mesh->VertexCount = VerticesCount;
     D3D11_BUFFER_DESC VertexBufferDesc = {};
     VertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;  // this is going to be const for now then i will chage it to dynamic buffer
     VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
@@ -405,55 +412,101 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     VertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     // Add the Vertices
     D3D11_SUBRESOURCE_DATA ResourceData = {};
-    ResourceData.pSysMem = Mesh->Vertices;
+    ResourceData.pSysMem = Terrain->Mesh->Vertices;
     // Create the Buffer
-    HRESULT Result = Renderer->Device->CreateBuffer(&VertexBufferDesc, &ResourceData, &Mesh->VertexBuffer);
+    HRESULT Result = Renderer->Device->CreateBuffer(&VertexBufferDesc, &ResourceData, &Terrain->Mesh->VertexBuffer);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("Vertex Buffer Created!\n");
     }
     // Create Index Buffer
-    Mesh->IndexCount = ColumsCount*RowsCount*6;
+    Terrain->Mesh->IndexCount = ColumsCount*RowsCount*6;
     D3D11_BUFFER_DESC IndexBufferDesc = {};
     IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
     IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
     IndexBufferDesc.ByteWidth = sizeof(int)*ColumsCount*RowsCount*6;
     IndexBufferDesc.CPUAccessFlags = 0;
-    ResourceData.pSysMem = Mesh->Indices;
+    ResourceData.pSysMem = Terrain->Mesh->Indices;
 
-    Result = Renderer->Device->CreateBuffer(&IndexBufferDesc, &ResourceData, &Mesh->IndexBuffer);
+    Result = Renderer->Device->CreateBuffer(&IndexBufferDesc, &ResourceData, &Terrain->Mesh->IndexBuffer);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("Index Buffer Created!\n");
     }
 
-    return Mesh;
+    return Terrain;
 }
 
 static void
-ModifyTerrainHeight(v3 PositionOnPlane, mesh *Mesh, renderer *Renderer, float DeltaTime)
+ModifyTerrainHeight(v3 PositionOnPlane, terrain *Terrain, renderer *Renderer, float DeltaTime)
 {
     // modify the vertices on the mesh
+    mesh *Mesh = Terrain->Mesh;
     if(PositionOnPlane.Y != -1.0f)
     {
-            if(PositionOnPlane.X >= 0 && PositionOnPlane.X < 41 &&
-               PositionOnPlane.Z >= 0 && PositionOnPlane.Z < 41)
+        PositionOnPlane.X -= Terrain->X;
+        PositionOnPlane.Z -= Terrain->Z;
+        if(PositionOnPlane.X >= 0 && PositionOnPlane.X < 40 &&
+           PositionOnPlane.Z >= 0 && PositionOnPlane.Z < 40)
+        {
+            int VerticesPerCol = Terrain->Cols + 1;
+            int Index0 = (((int)PositionOnPlane.Z * VerticesPerCol + (int)PositionOnPlane.X) * 8) + 1;
+            int Index1 = (((int)PositionOnPlane.Z * VerticesPerCol + ((int)PositionOnPlane.X+1)) * 8) + 1;
+            int Index2 = ((((int)PositionOnPlane.Z+1) * VerticesPerCol + (int)PositionOnPlane.X) * 8) + 1;
+            int Index3 = ((((int)PositionOnPlane.Z+1) * VerticesPerCol + ((int)PositionOnPlane.X+1)) * 8) + 1;
+            
+            Mesh->Vertices[Index0] += 10.0f * DeltaTime;
+            Mesh->Vertices[Index1] += 10.0f * DeltaTime;
+            Mesh->Vertices[Index2] += 10.0f * DeltaTime;
+            Mesh->Vertices[Index3] += 10.0f * DeltaTime;
+
+            // recalculate normals
+            // TODO(manuto): MAYBE only recalculate the normals that change 
+            // no every normal on the terrain
+            float *VerticesPtr = Mesh->Vertices;
+            for(int Z = 0;
+                Z < Terrain->Rows;
+                ++Z)
             {
-                int Index0 = (((int)PositionOnPlane.Z * 41 + (int)PositionOnPlane.X) * 8) + 1;
-                int Index1 = (((int)PositionOnPlane.Z * 41 + ((int)PositionOnPlane.X+1)) * 8) + 1;
-                int Index2 = ((((int)PositionOnPlane.Z+1) * 41 + (int)PositionOnPlane.X) * 8) + 1;
-                int Index3 = ((((int)PositionOnPlane.Z+1) * 41 + ((int)PositionOnPlane.X+1)) * 8) + 1;
-                
-                Mesh->Vertices[Index0] += 10.0f * DeltaTime;
-                Mesh->Vertices[Index1] += 10.0f * DeltaTime;
-                Mesh->Vertices[Index2] += 10.0f * DeltaTime;
-                Mesh->Vertices[Index3] += 10.0f * DeltaTime;
-                // map the new vertices to the graphic card vertices
-                D3D11_MAPPED_SUBRESOURCE VertexBufferData = {};
-                Renderer->RenderContext->Map(Mesh->VertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &VertexBufferData);
-                memcpy(VertexBufferData.pData, Mesh->Vertices, Mesh->VertexCount*3*2*3*sizeof(float));
-                Renderer->RenderContext->Unmap(Mesh->VertexBuffer, 0);
+                for(int X = 0;
+                    X < Terrain->Cols;
+                    ++X)
+                {
+                    int NXIndex = ((Z * VerticesPerCol + X) * 8) + 5;
+                    int NYIndex = NXIndex + 1;
+                    int NZIndex = NYIndex + 1;
+
+                    int XIndex0 = ((Z * VerticesPerCol + X) * 8);
+                    int YIndex0 = XIndex0 + 1;
+                    int ZIndex0 = YIndex0 + 1;
+
+                    int XIndex1 = ((Z * VerticesPerCol + (X+1)) * 8);
+                    int YIndex1 = XIndex1 + 1;
+                    int ZIndex1 = YIndex1 + 1;
+
+                    int XIndex2 = (((Z+1) * VerticesPerCol + X) * 8);
+                    int YIndex2 = XIndex2 + 1;
+                    int ZIndex2 = YIndex2 + 1;
+
+                    v3 A  = {VerticesPtr[XIndex0], VerticesPtr[YIndex0], VerticesPtr[ZIndex0]};
+                    v3 B  = {VerticesPtr[XIndex1], VerticesPtr[YIndex1], VerticesPtr[ZIndex1]};
+                    v3 C  = {VerticesPtr[XIndex2], VerticesPtr[YIndex2], VerticesPtr[ZIndex2]};
+
+                    v3 U = B - A;
+                    v3 V = C - A;
+                    v3 N = CrossV3(V, U);
+
+                    VerticesPtr[NXIndex] = N.X;
+                    VerticesPtr[NYIndex] = N.Y;
+                    VerticesPtr[NZIndex] = N.Z;
+                }
             }
+            // map the new vertices to the graphic card vertices
+            D3D11_MAPPED_SUBRESOURCE VertexBufferData = {};
+            Renderer->RenderContext->Map(Mesh->VertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &VertexBufferData);
+            memcpy(VertexBufferData.pData, Mesh->Vertices, Mesh->VertexCount*3*2*3*sizeof(float));
+            Renderer->RenderContext->Unmap(Mesh->VertexBuffer, 0);
+        }
     }
 }
 

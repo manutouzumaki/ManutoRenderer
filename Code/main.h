@@ -47,6 +47,15 @@ StringCompare(char *A, char *B, int Size)
     return Result;
 }
 
+struct terrain
+{
+    int X, Y, Z;
+    int Cols;
+    int Rows;
+    int Size;
+    mesh *Mesh;
+};
+
 struct game_state
 {
     window *Window;
@@ -67,7 +76,7 @@ struct game_state
     mesh *SphereMesh;
     texture *SphereTexture;
 
-    mesh *Terrain;
+    terrain *Terrain;
     texture *TerrainTexture;
 
 
