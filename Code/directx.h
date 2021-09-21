@@ -27,9 +27,11 @@ struct shader
 struct mesh
 {
     ID3D11Buffer *VertexBuffer;
-    unsigned int VertexCount;
     ID3D11Buffer *IndexBuffer;
+    unsigned int VertexCount;
+    float *Vertices;
     unsigned int IndexCount;
+    int *Indices;
 };
 
 struct mat4_constant_buffer

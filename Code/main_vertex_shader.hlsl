@@ -33,7 +33,7 @@ PS_Input VS_Main( VS_Input vertex )
     vsOut.norm = mul(vertex.norm, (float3x3)World);
     vsOut.norm = normalize(vsOut.norm);
 
-    float3 lightPos = float3(0.0f, 5.0f, 5.0f);
+    float3 lightPos = float3(20.0f, 20.0f, 20.0f);
     vsOut.lightVec = normalize(lightPos - worldPos.xyz);
     vsOut.viewVec = normalize(cameraPos - worldPos.xyz);
     return vsOut;

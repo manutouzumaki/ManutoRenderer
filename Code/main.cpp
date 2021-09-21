@@ -63,7 +63,7 @@ GetV3RayFrom2DPos(int XPos, int YPos, mat4 View, mat4 Proj)
 }
 
 static v3
-MouseRayPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, mat4 Proj)
+MouseRayCameraPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, mat4 Proj)
 {
     v3 C = Camera->Target;
     v3 O = Camera->Position;
@@ -78,6 +78,32 @@ MouseRayPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, 
         T = DotV3((N*-1.0f), (O - PlaneOffset)) / DotV3(N, D);
     }
     v3 MousePositionOnPlane = LerpV3(O, D, T);
+    return MousePositionOnPlane;
+}
+
+static v3
+MouseRayPlaneIntersection(app_input *Input, arc_camera *Camera, v3 PlaneOffset, mat4 Proj)
+{
+    v3 O = Camera->Position;
+    v3 D = GetV3RayFrom2DPos(Input->MouseX, Input->MouseY, Camera->View, Proj);
+    D = NormalizeV3(D);
+    v3 N = {0.0f, 1.0f, 0.0f};
+    
+    float T = 0;
+    if(DotV3(N, D) > 0 || DotV3(N, D) < 0)
+    {
+        T = DotV3((N*-1.0f), (O - PlaneOffset)) / DotV3(N, D);
+    }
+    
+    v3 MousePositionOnPlane = {};
+    if(T >= 0)
+    {
+        MousePositionOnPlane = LerpV3(O, D, T);
+    }
+    else
+    {
+        MousePositionOnPlane.Y = MousePositionOnPlane.Y - 1.0f;
+    }
     return MousePositionOnPlane;
 }
 
@@ -152,7 +178,7 @@ ProcessMeshShouldMove(app_input *Input, game_state *GameState)
     {
         GameState->SphereSelected = &GameState->BoundingSpheres[Index];
         GameState->SpherePositionWhenClick = GameState->SphereSelected->Position;
-        v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
+        v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
         GameState->Offset = MousePositionOnPlane - GameState->SphereSelected->Position;
         GameState->MoveMesh = true;
     }
@@ -191,6 +217,12 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
     {
         GameState->MoveMesh = false;
     }
+
+    if(MouseDown(Input, RIGHT_CLICK))
+    {
+        v3 MousePositionOnTerrain = MouseRayPlaneIntersection(Input, &GameState->Camera, {0.0f, 0.0f, 0.0f}, GameState->Proj);
+        ModifyTerrainHeight(MousePositionOnTerrain, GameState->Terrain, GameState->Renderer, DeltaTime);
+    }
 }
 
 static void
@@ -222,7 +254,7 @@ GameSetUp(app_memory *Memory)
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->TerrainTexture = LoadTexture("../Data/grass.bmp", GameState->Renderer, &GameState->FileArena);
             
-            GameState->Terrain = LoadTerrain(-20.0f, 0.0f, -20.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
+            GameState->Terrain = LoadTerrain(0.0f, 0.0f, 0.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
 
             InitializeCamera(&GameState->Camera);
 
@@ -254,7 +286,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     // move selected mesh on the camera plane...
     if(GameState->MoveMesh)
     {
-        v3 MousePositionOnPlane = MouseRayPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
+        v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
         GameState->SphereSelected->Position = MousePositionOnPlane - GameState->Offset;
     }
     

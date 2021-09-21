@@ -231,6 +231,9 @@ InitMa4ConstBuffer(renderer *Renderer)
     }
 }
 
+//static mat4_constant_buffer GlobalMat4ConstBuffer; 
+//static ID3D11Buffer *GlobalMat4Buffer;
+
 #define MapConstantBuffer(RenderContext, ConstBuffer, Type, Buffer) \
     do { \
         D3D11_MAPPED_SUBRESOURCE GPUConstantBufferData = {}; \
@@ -347,10 +350,10 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     mesh *Mesh = (mesh *)PushStruct(Arena, mesh);
     int VerticesCount = (ColumsCount + 1) * (RowsCount + 1);
     // get memory for the terrain mesh
-    float *Vertices = (float *)PushArray(Arena, VerticesCount*3*2*3, float); 
-    int *Indices = (int *)PushArray(Arena, (ColumsCount*RowsCount*6), int);
+    Mesh->Vertices = (float *)PushArray(Arena, VerticesCount*3*2*3, float); 
+    Mesh->Indices = (int *)PushArray(Arena, (ColumsCount*RowsCount*6), int);
     // set up the vertices
-    float *VerticesPtr = Vertices;
+    float *VerticesPtr = Mesh->Vertices;
     for(int ZPos = 0;
         ZPos < RowsCount + 1;
         ++ZPos)
@@ -374,7 +377,7 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     }
     
     // set up the indices
-    int *IndicesPtr = Indices;
+    int *IndicesPtr = Mesh->Indices;
     for(int ZPos = 0;
         ZPos < RowsCount;
         ++ZPos)
@@ -396,12 +399,13 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     // create DirectX11 Mesh
     Mesh->VertexCount = VerticesCount;
     D3D11_BUFFER_DESC VertexBufferDesc = {};
-    VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;  // this is going to be const for now then i will chage it to dynamic buffer
+    VertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;  // this is going to be const for now then i will chage it to dynamic buffer
     VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     VertexBufferDesc.ByteWidth = sizeof(float)*VerticesCount*3*2*3;
+    VertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     // Add the Vertices
     D3D11_SUBRESOURCE_DATA ResourceData = {};
-    ResourceData.pSysMem = Vertices;
+    ResourceData.pSysMem = Mesh->Vertices;
     // Create the Buffer
     HRESULT Result = Renderer->Device->CreateBuffer(&VertexBufferDesc, &ResourceData, &Mesh->VertexBuffer);
     if(SUCCEEDED(Result))
@@ -415,7 +419,7 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
     IndexBufferDesc.ByteWidth = sizeof(int)*ColumsCount*RowsCount*6;
     IndexBufferDesc.CPUAccessFlags = 0;
-    ResourceData.pSysMem = Indices;
+    ResourceData.pSysMem = Mesh->Indices;
 
     Result = Renderer->Device->CreateBuffer(&IndexBufferDesc, &ResourceData, &Mesh->IndexBuffer);
     if(SUCCEEDED(Result))
@@ -424,6 +428,33 @@ LoadTerrain(float X, float Y, float Z, int ColumsCount, int RowsCount, int Size,
     }
 
     return Mesh;
+}
+
+static void
+ModifyTerrainHeight(v3 PositionOnPlane, mesh *Mesh, renderer *Renderer, float DeltaTime)
+{
+    // modify the vertices on the mesh
+    if(PositionOnPlane.Y != -1.0f)
+    {
+            if(PositionOnPlane.X >= 0 && PositionOnPlane.X < 41 &&
+               PositionOnPlane.Z >= 0 && PositionOnPlane.Z < 41)
+            {
+                int Index0 = (((int)PositionOnPlane.Z * 41 + (int)PositionOnPlane.X) * 8) + 1;
+                int Index1 = (((int)PositionOnPlane.Z * 41 + ((int)PositionOnPlane.X+1)) * 8) + 1;
+                int Index2 = ((((int)PositionOnPlane.Z+1) * 41 + (int)PositionOnPlane.X) * 8) + 1;
+                int Index3 = ((((int)PositionOnPlane.Z+1) * 41 + ((int)PositionOnPlane.X+1)) * 8) + 1;
+                
+                Mesh->Vertices[Index0] += 10.0f * DeltaTime;
+                Mesh->Vertices[Index1] += 10.0f * DeltaTime;
+                Mesh->Vertices[Index2] += 10.0f * DeltaTime;
+                Mesh->Vertices[Index3] += 10.0f * DeltaTime;
+                // map the new vertices to the graphic card vertices
+                D3D11_MAPPED_SUBRESOURCE VertexBufferData = {};
+                Renderer->RenderContext->Map(Mesh->VertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &VertexBufferData);
+                memcpy(VertexBufferData.pData, Mesh->Vertices, Mesh->VertexCount*3*2*3*sizeof(float));
+                Renderer->RenderContext->Unmap(Mesh->VertexBuffer, 0);
+            }
+    }
 }
 
 static mesh *
