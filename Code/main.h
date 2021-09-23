@@ -65,9 +65,13 @@ struct game_state
     arena FileArena;
 
     shader *Shader;
+    shader *SkyboxShader;
 
     mat4 Proj; 
     arc_camera Camera;
+
+    mesh *SkyBox;
+    texture *SkyBoxTexture;
 
     mesh *TreeMesh;
     texture *TreeTexture;

@@ -131,7 +131,7 @@ D3D11Initialize(HWND Window,
     // Create Rasterizer for set render types
     D3D11_RASTERIZER_DESC FillRasterizerDesc = {};
     FillRasterizerDesc.FillMode = D3D11_FILL_SOLID;
-    FillRasterizerDesc.CullMode = D3D11_CULL_BACK;
+    FillRasterizerDesc.CullMode = D3D11_CULL_NONE;
     FillRasterizerDesc.DepthClipEnable = true;
     (*Device)->CreateRasterizerState(&FillRasterizerDesc, FillRasterizer);
 
@@ -590,6 +590,72 @@ LoadTexture(char *TextureFileName, renderer *Renderer, arena *Arena)
     }
     return Texture;
 }
+
+static texture *
+LoadCubeTexture(char *Front, char *Back,
+           char *Left, char *Right,
+           char *Top, char *Bottom,
+           renderer *Renderer, arena *Arena)
+{   
+    texture *CubeTexture = (texture *)PushStruct(Arena, texture);
+    bit_map Images[6];
+    Images[0] = LoadBMP(Front, Arena); 
+    Images[1] = LoadBMP(Back, Arena); 
+    Images[2] = LoadBMP(Left, Arena); 
+    Images[3] = LoadBMP(Right, Arena); 
+    Images[4] = LoadBMP(Top, Arena); 
+    Images[5] = LoadBMP(Bottom, Arena);
+
+	ID3D11Texture2D* CubeTexture2D = NULL;
+
+    D3D11_TEXTURE2D_DESC TextureDesc = {}; 
+    TextureDesc.Width = Images[0].Width;
+    TextureDesc.Height = Images[0].Height;
+    TextureDesc.MipLevels = 1;
+    TextureDesc.ArraySize = 6;
+    TextureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    TextureDesc.SampleDesc.Count = 1;
+    TextureDesc.SampleDesc.Quality = 0;
+    TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    TextureDesc.CPUAccessFlags = 0;
+    TextureDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+
+    // shader resource view description
+    D3D11_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDesc;
+	ShaderResourceViewDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	ShaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+	ShaderResourceViewDesc.TextureCube.MipLevels = 1;
+	ShaderResourceViewDesc.TextureCube.MostDetailedMip = 0;
+
+    // array to fill which we will use to point D3D at ouur loaded CPU images    
+    D3D11_SUBRESOURCE_DATA Data[6];
+	for (int Index = 0;
+         Index < 6;
+         ++Index)
+    {
+        Data[Index].pSysMem = (void *)Images[Index].Pixels; 
+        Data[Index].SysMemPitch = Images[Index].Width*sizeof(unsigned int); 
+        Data[Index].SysMemSlicePitch = 0;
+    }
+
+    // create the texture resource
+    HRESULT Result = Renderer->Device->CreateTexture2D(&TextureDesc, &Data[0], &CubeTexture2D);
+    Result = Renderer->Device->CreateShaderResourceView(CubeTexture2D, &ShaderResourceViewDesc, &CubeTexture->ColorMap);
+    
+    CubeTexture2D->Release();
+
+    D3D11_SAMPLER_DESC ColorMapDesc = {};
+    ColorMapDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    ColorMapDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    ColorMapDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    ColorMapDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    ColorMapDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT; //D3D11_FILTER_MIN_MAG_MIP_LINEAR | D3D11_FILTER_MIN_MAG_MIP_POINT
+    ColorMapDesc.MaxLOD = D3D11_FLOAT32_MAX;
+    Result = Renderer->Device->CreateSamplerState(&ColorMapDesc, &CubeTexture->ColorMapSampler);
+    return CubeTexture;
+}
+
 
 static void
 SetTexture(texture *Texture, renderer *Renderer)

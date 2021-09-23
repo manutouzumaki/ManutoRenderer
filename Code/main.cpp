@@ -231,7 +231,7 @@ GameSetUp(app_memory *Memory)
     game_state *GameState = (game_state *)Memory->Memory;
     Memory->Use = sizeof(game_state);
 
-    InitArena(Memory, &GameState->FileArena,   Megabytes(40));
+    InitArena(Memory, &GameState->FileArena,   Megabytes(200));
     InitArena(Memory, &GameState->RenderArena, Megabytes(20)); 
     
     GameState->Window = PlatformCreateWindow("Renderer", WND_WIDTH, WND_HEIGHT, &GameState->RenderArena);
@@ -246,6 +246,10 @@ GameSetUp(app_memory *Memory)
                                                               "../Code/main_vertex_shader.hlsl", "VS_Main",
                                                               "../Code/main_pixel_shader.hlsl", "PS_Main",
                                                               &GameState->FileArena);
+            GameState->SkyboxShader = PlatformCreateShadersFromFile(GameState->Renderer,
+                                                                    "../Code/sky_vertex_shader.hlsl", "VS_Main",
+                                                                    "../Code/sky_pixel_shader.hlsl", "PS_Main",
+                                                                    &GameState->FileArena);
             GameState->TreeMesh = LoadMesh("../Data/tree.obj", GameState->Renderer, &GameState->FileArena);
             GameState->HouseMesh = LoadMesh("../Data/house.obj", GameState->Renderer, &GameState->FileArena);
             GameState->SphereMesh = LoadMesh("../Data/sphere_low.obj", GameState->Renderer, &GameState->FileArena);
@@ -255,6 +259,12 @@ GameSetUp(app_memory *Memory)
             GameState->TerrainTexture = LoadTexture("../Data/rock.bmp", GameState->Renderer, &GameState->FileArena);
             
             GameState->Terrain = LoadTerrain(-40.0f, 0.0f, -20.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
+
+            GameState->SkyBox = LoadCube(GameState->Renderer, &GameState->FileArena);
+            GameState->SkyBoxTexture = LoadCubeTexture("../Data/right.bmp", "../Data/left.bmp",
+                                                       "../Data/top.bmp", "../Data/bottom.bmp",
+                                                       "../Data/back.bmp","../Data/front.bmp",
+                                                       GameState->Renderer, &GameState->FileArena);
 
             InitializeCamera(&GameState->Camera);
 
@@ -291,6 +301,11 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     }
     
     // Render...
+    SetFillType(GameState->Renderer, SOLID);
+
+    SetTexture(GameState->SkyBoxTexture, GameState->Renderer);
+    RenderMeshIndexed(GameState->SkyBox, GameState->SkyboxShader, GameState->Renderer); 
+    
     SetFillType(GameState->Renderer, WIREFRAME);
 
     float Scale = GameState->BoundingSpheres[0].Radius;
