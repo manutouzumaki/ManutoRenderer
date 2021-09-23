@@ -9,7 +9,10 @@ D3D11Initialize(HWND Window,
                 ID3D11RenderTargetView **BackBuffer,
                 ID3D11DepthStencilView **DepthStencilView,
                 ID3D11RasterizerState **WireFrameRasterizer,
-                ID3D11RasterizerState **FillRasterizer,
+                ID3D11RasterizerState **FillRasterizerCullBack,
+                ID3D11RasterizerState **FillRasterizerCullNone,
+                ID3D11DepthStencilState **DepthStencilOn,
+                ID3D11DepthStencilState **DepthStencilOff,
                 unsigned int WindowWidth,
                 unsigned int WindowHeight)
 {
@@ -86,6 +89,29 @@ D3D11Initialize(HWND Window,
     DepthTexDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
     DepthTexDesc.CPUAccessFlags = 0;
     DepthTexDesc.MiscFlags = 0; 
+
+    // create depth states
+    D3D11_DEPTH_STENCIL_DESC DSDesc;
+    // Depth test parameters
+    DSDesc.DepthEnable = true;
+    DSDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    DSDesc.DepthFunc = D3D11_COMPARISON_LESS;
+    // Stencil test parameters
+    DSDesc.StencilEnable = true;
+    DSDesc.StencilReadMask = 0xFF;
+    DSDesc.StencilWriteMask = 0xFF;
+    // Stencil operations if pixel is back-facing
+    DSDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+    DSDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+    (*Device)->CreateDepthStencilState(&DSDesc, DepthStencilOn);
+    DSDesc.DepthEnable = false;
+    DSDesc.StencilEnable = false;
+    (*Device)->CreateDepthStencilState(&DSDesc, DepthStencilOff);
+
+    (*RenderContext)->OMSetDepthStencilState(*DepthStencilOn, 1);
     
     Result = (*Device)->CreateTexture2D(&DepthTexDesc, NULL, &DepthTexture);
     // create the depth stencil view
@@ -129,11 +155,18 @@ D3D11Initialize(HWND Window,
     (*RenderContext)->RSSetViewports(1, &Viewport);
 
     // Create Rasterizer for set render types
-    D3D11_RASTERIZER_DESC FillRasterizerDesc = {};
-    FillRasterizerDesc.FillMode = D3D11_FILL_SOLID;
-    FillRasterizerDesc.CullMode = D3D11_CULL_NONE;
-    FillRasterizerDesc.DepthClipEnable = true;
-    (*Device)->CreateRasterizerState(&FillRasterizerDesc, FillRasterizer);
+    D3D11_RASTERIZER_DESC FillRasterizerNoneDesc = {};
+    FillRasterizerNoneDesc.FillMode = D3D11_FILL_SOLID;
+    FillRasterizerNoneDesc.CullMode = D3D11_CULL_NONE;
+    FillRasterizerNoneDesc.DepthClipEnable = true;
+    (*Device)->CreateRasterizerState(&FillRasterizerNoneDesc, FillRasterizerCullNone);
+
+    D3D11_RASTERIZER_DESC FillRasterizerBackDesc = {};
+    FillRasterizerBackDesc.FillMode = D3D11_FILL_SOLID;
+    FillRasterizerBackDesc.CullMode = D3D11_CULL_BACK;
+    FillRasterizerBackDesc.DepthClipEnable = true;
+    (*Device)->CreateRasterizerState(&FillRasterizerBackDesc, FillRasterizerCullBack);
+
 
     D3D11_RASTERIZER_DESC WireFrameRasterizerDesc = {};
     WireFrameRasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
@@ -230,9 +263,6 @@ InitMa4ConstBuffer(renderer *Renderer)
         OutputDebugString("Mat4Buffer Created!\n");
     }
 }
-
-//static mat4_constant_buffer GlobalMat4ConstBuffer; 
-//static ID3D11Buffer *GlobalMat4Buffer;
 
 #define MapConstantBuffer(RenderContext, ConstBuffer, Type, Buffer) \
     do { \
@@ -669,11 +699,28 @@ SetFillType(renderer *Renderer, int Type)
 {
     if(Type == 0)
     {
-        Renderer->RenderContext->RSSetState(Renderer->FillRasterizer);
+        Renderer->RenderContext->RSSetState(Renderer->FillRasterizerCullBack);
     }
     else if(Type == 1)
     { 
+        Renderer->RenderContext->RSSetState(Renderer->FillRasterizerCullNone);
+    }
+    else if(Type == 2)
+    { 
         Renderer->RenderContext->RSSetState(Renderer->WireFrameRasterizer);
+    }
+}
+
+static void
+SetDepthStencilState(renderer *Renderer, int Type)
+{
+    if(Type == 0)
+    {
+        Renderer->RenderContext->OMSetDepthStencilState(Renderer->DepthStencilOn, 1);
+    }
+    else if(Type == 1)
+    { 
+        Renderer->RenderContext->OMSetDepthStencilState(Renderer->DepthStencilOff, 1);
     }
 }
 

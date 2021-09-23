@@ -301,13 +301,14 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     }
     
     // Render...
-    SetFillType(GameState->Renderer, SOLID);
-    
+    SetFillType(GameState->Renderer, SOLID_NONE_CULL); 
+    SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_OFF);
     mat4 SkyBoxView = Mat3ToMat4(Mat4ToMat3(GameState->Camera.View));
     SetViewMat4(GameState->Renderer, SkyBoxView);
     SetTexture(GameState->SkyBoxTexture, GameState->Renderer);
-    //RenderMeshIndexed(GameState->SkyBox, GameState->SkyboxShader, GameState->Renderer);
+    RenderMeshIndexed(GameState->SkyBox, GameState->SkyboxShader, GameState->Renderer);
     SetViewMat4(GameState->Renderer, GameState->Camera.View);
+    SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_ON);
     
     SetFillType(GameState->Renderer, WIREFRAME);
 
@@ -323,7 +324,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     SetTexture(GameState->SphereTexture, GameState->Renderer);
     RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
 
-    SetFillType(GameState->Renderer, SOLID);
+    SetFillType(GameState->Renderer, SOLID_BACK_CULL);
 
     World = TranslationMat4(GameState->BoundingSpheres[0].Position);// * ScaleMat4({Scale, Scale, Scale});
     SetWorldMat4(GameState->Renderer, World);

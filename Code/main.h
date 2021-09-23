@@ -17,8 +17,12 @@
 #define RIGHT_CLICK 2
 #define SHIFT_CLICK 3
 
-#define SOLID 0
-#define WIREFRAME 1
+#define SOLID_BACK_CULL 0
+#define SOLID_NONE_CULL 1
+#define WIREFRAME 2
+
+#define DEPTH_STENCIL_ON 0
+#define DEPTH_STENCIL_OFF 1
 
 static int
 StringLength(char * String)
