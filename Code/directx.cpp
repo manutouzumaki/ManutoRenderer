@@ -137,7 +137,7 @@ D3D11Initialize(HWND Window,
 
     D3D11_RASTERIZER_DESC WireFrameRasterizerDesc = {};
     WireFrameRasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
-    WireFrameRasterizerDesc.CullMode = D3D11_CULL_NONE;
+    WireFrameRasterizerDesc.CullMode = D3D11_CULL_NONE; // D3D11_CULL_BACK D3D11_CULL_NONE
     WireFrameRasterizerDesc.DepthClipEnable = true;
     (*Device)->CreateRasterizerState(&WireFrameRasterizerDesc, WireFrameRasterizer);
 }

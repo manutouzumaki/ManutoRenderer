@@ -223,6 +223,28 @@ v4 V3ToV4(v3 V, float W)
     return Result;
 }
 
+mat3 Mat4ToMat3(mat4 M)
+{
+    mat3 Result = {{
+        {M.m[0][0], M.m[0][1], M.m[0][2]},
+        {M.m[1][0], M.m[1][1], M.m[1][2]},
+        {M.m[2][0], M.m[2][1], M.m[2][2]} 
+    }};
+    return Result;
+}
+
+mat4 Mat3ToMat4(mat3 M)
+{
+    mat4 Result = {{
+        {M.m[0][0], M.m[0][1], M.m[0][2], 0.0f},
+        {M.m[1][0], M.m[1][1], M.m[1][2], 0.0f},
+        {M.m[2][0], M.m[2][1], M.m[2][2], 0.0f},
+        {0.0f,      0.0f,      0.0f,      1.0f}
+    }};
+    return Result;
+}
+
+
 mat4 TransposeMat4(mat4 M)
 {
     mat4 Result = {{

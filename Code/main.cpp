@@ -261,8 +261,8 @@ GameSetUp(app_memory *Memory)
             GameState->Terrain = LoadTerrain(-40.0f, 0.0f, -20.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
 
             GameState->SkyBox = LoadCube(GameState->Renderer, &GameState->FileArena);
-            GameState->SkyBoxTexture = LoadCubeTexture("../Data/right.bmp", "../Data/left.bmp",
-                                                       "../Data/top.bmp", "../Data/bottom.bmp",
+            GameState->SkyBoxTexture = LoadCubeTexture("../Data/left.bmp", "../Data/right.bmp",
+                                                       "../Data/bottom.bmp", "../Data/top.bmp",
                                                        "../Data/back.bmp","../Data/front.bmp",
                                                        GameState->Renderer, &GameState->FileArena);
 
@@ -302,9 +302,12 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     
     // Render...
     SetFillType(GameState->Renderer, SOLID);
-
+    
+    mat4 SkyBoxView = Mat3ToMat4(Mat4ToMat3(GameState->Camera.View));
+    SetViewMat4(GameState->Renderer, SkyBoxView);
     SetTexture(GameState->SkyBoxTexture, GameState->Renderer);
-    RenderMeshIndexed(GameState->SkyBox, GameState->SkyboxShader, GameState->Renderer); 
+    //RenderMeshIndexed(GameState->SkyBox, GameState->SkyboxShader, GameState->Renderer);
+    SetViewMat4(GameState->Renderer, GameState->Camera.View);
     
     SetFillType(GameState->Renderer, WIREFRAME);
 
