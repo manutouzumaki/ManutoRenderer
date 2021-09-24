@@ -60,6 +60,12 @@ struct terrain
     mesh *Mesh;
 };
 
+struct meshes_list
+{
+    mesh *Mesh;
+    int Counter;
+};
+
 struct game_state
 {
     window *Window;
@@ -67,6 +73,7 @@ struct game_state
 
     arena RenderArena;
     arena FileArena;
+    arena MeshListArena;
 
     shader *Shader;
     shader *SkyboxShader;
@@ -95,6 +102,7 @@ struct game_state
     v3 SpherePositionWhenClick;
     v3 Offset;
 
+    meshes_list MeshList;
 };  
 
 #endif

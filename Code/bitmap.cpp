@@ -21,6 +21,28 @@ ReadEntireFile(char *FileName, SIZE_T *FileSizePtr, arena *Arena)
 }
 
 static void *
+ReadEntireFileUnicode(wchar_t *FileName, SIZE_T *FileSizePtr, arena *Arena)
+{
+    HANDLE FileHandle =  CreateFileW(FileName, GENERIC_READ, FILE_SHARE_READ, 0,
+                                     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if(FileHandle == INVALID_HANDLE_VALUE)
+    {
+        OutputDebugString("ERROR::OPENING::FILE\n");
+        return 0;
+    }
+    LARGE_INTEGER FileSize;
+    GetFileSizeEx(FileHandle, &FileSize);
+    void *FileBuffer = PushSize(Arena, FileSize.QuadPart);
+    if(FileSizePtr) *FileSizePtr = (SIZE_T)FileSize.QuadPart;
+    if(!ReadFile(FileHandle, FileBuffer, (DWORD)FileSize.QuadPart, 0, 0))
+    {
+        OutputDebugString("ERROR::READING::FILE\n");
+        return 0;
+    }
+    return FileBuffer;
+}
+
+static void *
 ReadEntireFile(char *FileName, SIZE_T *FileSizePtr)
 {
     HANDLE FileHandle =  CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, 0,

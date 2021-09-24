@@ -7,6 +7,8 @@ struct window;
 struct renderer;
 struct shader;
 
+
+#define PLATFORM_OPEN_FILE_EXPLORER(name) bool name(void **FileData, arena *Arena)
 #define PLATFORM_CREATE_WINDOW(name) window *name(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena)
 #define PLATFORM_CREATE_RENDERER(name) renderer *name(window *Window, arena *Arena)
 #define PLATFORM_CREATE_SHADERS_FROM_FILE(name) shader *name(renderer *Renderer, char * VertexShaderFileName, \
@@ -18,6 +20,7 @@ struct shader;
 #define PLATFORM_SHOW_CURSOR(name) void name(bool Value)
 #define PLATFORM_SET_CURSOR_POSITION(name) void name(int PosX, int PosY)
 
+PLATFORM_OPEN_FILE_EXPLORER(BasicFileOpenTest);
 PLATFORM_CREATE_WINDOW(PlatformCreateWindow);
 PLATFORM_CREATE_RENDERER(PlatformCreateRenderer);
 PLATFORM_CREATE_SHADERS_FROM_FILE(PlatformCreateShadersFromFile);
@@ -44,12 +47,20 @@ struct mouse_buttons
     button_state Buttons[4];
 };
 
+struct keys
+{
+    button_state Keys[256];
+};
+
 struct app_input
 {
     int MouseX, MouseY;
     int MouseDefaultX, MouseDefaultY;
-    mouse_buttons *MouseButtons;   
+    mouse_buttons *MouseButtons;  
+    keys *KeyboardKeys; 
     int MouseWheel;
+
+    
 };
 
 #endif

@@ -230,7 +230,8 @@ GameSetUp(app_memory *Memory)
 {
     game_state *GameState = (game_state *)Memory->Memory;
     Memory->Use = sizeof(game_state);
-
+    
+    InitArena(Memory, &GameState->MeshListArena, Megabytes(200));
     InitArena(Memory, &GameState->FileArena,   Megabytes(200));
     InitArena(Memory, &GameState->RenderArena, Megabytes(20)); 
     
@@ -284,6 +285,20 @@ GameSetUp(app_memory *Memory)
 
 
 static void
+LoadMeshFromFileExplorer(mesh *Mesh, renderer *Renderer, arena *Arena)
+{ 
+    void *FileData = NULL;
+    if(BasicFileOpenTest(&FileData, Arena))
+    {
+        LoadMeshToMeshArray(FileData, Mesh, Renderer, Arena);
+        if(Mesh)
+        {
+            OutputDebugString("Mesh Loaded!\n");
+        }
+    }
+}
+
+static void
 GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 {
     game_state *GameState = (game_state *)Memory->Memory;
@@ -292,11 +307,15 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     ProcessInput(Input, GameState, DeltaTime); 
     UpdateCameraView(&GameState->Camera, Input);
     SetViewMat4(GameState->Renderer, GameState->Camera.View);
-
-    char Buffer[100];
-    sprintf(Buffer, "X: %f, Y: %f, Z: %F\n", GameState->Camera.Position.X, GameState->Camera.Position.Y, GameState->Camera.Position.Z);
-    OutputDebugString(Buffer);
     
+
+    if(Input->KeyboardKeys->Keys['Q'].IsDown)
+    {
+
+        GameState->MeshList.Mesh = (mesh *)PushStruct(&GameState->MeshListArena, mesh);
+        LoadMeshFromFileExplorer(GameState->MeshList.Mesh, GameState->Renderer, &GameState->FileArena);
+        ++GameState->MeshList.Counter;
+    }
     // move selected mesh on the camera plane...
     if(GameState->MoveMesh)
     {
@@ -349,6 +368,20 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->TerrainTexture, GameState->Renderer);
     RenderMeshIndexed(GameState->Terrain->Mesh, GameState->Shader, GameState->Renderer);
+
+    mesh *FirstElement = GameState->MeshList.Mesh;
+    FirstElement -= (GameState->MeshList.Counter - 1);
+    for(int Index = 0;
+        Index < GameState->MeshList.Counter;
+        ++Index)
+    {
+        World = TranslationMat4({(float)Index*10.0f, 0.0f, 0.0f});
+        SetWorldMat4(GameState->Renderer, World);
+        SetTexture(GameState->SphereTexture, GameState->Renderer);
+        RenderMesh(FirstElement, GameState->Shader, GameState->Renderer);
+        ++FirstElement;
+    }
+ 
 }
 
 

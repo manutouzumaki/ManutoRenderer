@@ -2,6 +2,7 @@
 #define MESH_H
 
 // opaque struct define in directx.h and opengl.h
+
 struct mesh;
 
 struct obj

@@ -563,6 +563,26 @@ LoadMesh(char *OBJFileName, renderer *Renderer, arena *Arena)
     return Mesh;
 }
 
+static void
+LoadMeshToMeshArray(void *OBJFile, mesh *Mesh, renderer *Renderer, arena *Arena)
+{
+    obj OBJ = LoadOBJData(OBJFile, Arena);
+    Mesh->VertexCount = OBJ.VerticesCount;
+    D3D11_BUFFER_DESC VertexBufferDesc = {};
+    VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    VertexBufferDesc.ByteWidth = sizeof(float)*OBJ.VerticesCount;
+    // Add the Vertices
+    D3D11_SUBRESOURCE_DATA ResourceData = {};
+    ResourceData.pSysMem = OBJ.Vertices;
+    // Create the Buffer
+    HRESULT Result = Renderer->Device->CreateBuffer(&VertexBufferDesc, &ResourceData, &Mesh->VertexBuffer);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("Vertex Buffer Created!\n");
+    }
+}
+
 static texture *
 LoadTexture(char *TextureFileName, renderer *Renderer, arena *Arena)
 {

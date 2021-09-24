@@ -28,6 +28,7 @@ struct shader
     ID3D11InputLayout *InputLayout;
 };
 
+
 struct mesh
 {
     ID3D11Buffer *VertexBuffer;
@@ -37,6 +38,7 @@ struct mesh
     unsigned int IndexCount;
     int *Indices;
 };
+
 
 struct mat4_constant_buffer
 {

@@ -75,86 +75,6 @@ GetRenderer(app_memory *Memory)
     return NULL;
 }
 
-#if 1
-static HRESULT
-BasicFileOpenTest()
-{
-    // cocreate the file open dialog object
-    IFileDialog *FileDialog = NULL;
-    HRESULT Result = CoCreateInstance(CLSID_FileOpenDialog,
-                                      NULL,
-                                      CLSCTX_INPROC_SERVER,
-                                      IID_PPV_ARGS(&FileDialog));
-    if(SUCCEEDED(Result))
-    {
-        // create an event handling object, and hook it up to the dialog
-        if(SUCCEEDED(Result))
-        {
-            // hook up the event handler
-            if(SUCCEEDED(Result))
-            {
-                // set the options on the dialog
-                DWORD Flags;
-
-                // before setting, always get the options first in order
-                // not to override existing options
-                Result = FileDialog->GetOptions(&Flags);
-                if(SUCCEEDED(Result))
-                {
-                    // in this case, get shell items only for file system items
-                    Result = FileDialog->SetOptions(Flags | FOS_FORCEFILESYSTEM);
-                    if(SUCCEEDED(Result))
-                    {
-                        // set the file type to display only
-                        // notice that this is a 1-based array
-                        Result = FileDialog->SetFileTypes(ArrayCount(c_rgSaveTypes), c_rgSaveTypes);
-                        if(SUCCEEDED(Result))
-                        {
-                            Result = FileDialog->SetFileTypeIndex(INDEX_ALL_FILES);
-                            if(SUCCEEDED(Result))
-                            {
-                                // set the default extencion to be ".cpp" file.
-                                Result = FileDialog->SetDefaultExtension(L"cpp");
-                                if(SUCCEEDED(Result))
-                                {
-                                    // show the dialog
-                                    Result = FileDialog->Show(NULL);
-                                    if(SUCCEEDED(Result))
-                                    {
-                                        // obtain the result once the user clicks
-                                        // the 'Open' button
-                                        // the result if an IShellItem object
-                                        IShellItem *SearchResult;
-                                        Result = FileDialog->GetResult(&SearchResult);
-                                        if(SUCCEEDED(Result))
-                                        {
-                                            // we are just going to print out the
-                                            // name of the file for sample sake
-                                            PWSTR FilePath = NULL;
-                                            Result = SearchResult->GetDisplayName(SIGDN_FILESYSPATH, &FilePath);
-                                            if(SUCCEEDED(Result))
-                                            {
-                                                TaskDialog(NULL, NULL, L"CommonFileDialogApp", FilePath, NULL,
-                                                           TDCBF_OK_BUTTON, TD_INFORMATION_ICON, NULL);
-                                                CoTaskMemFree(FilePath);
-                                            }
-                                            SearchResult->Release();
-                                        }
-                                    }
-                                }
-                            }
-                            
-                        }
-                    }
-                } 
-            }
-        }
-        FileDialog->Release();
-    }
-    return Result;
-}
-#endif
-
 LRESULT CALLBACK WndProc(HWND   Window,
                          UINT   Message,
                          WPARAM WParam,
@@ -185,26 +105,38 @@ LRESULT CALLBACK WndProc(HWND   Window,
 }
 
 static void 
-ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_buttons *OldMouseButtons)
+ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_buttons *OldMouseButtons,
+                    keys *ActualKeys, keys *OldKeys)
 {
+    for(int Index = 0;
+        Index < 256;
+        ++Index)
+    {
+        ActualKeys->Keys[Index].IsDown = false;
+    }
+
     MSG Message = {};
     while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
     {
         switch(Message.message)
         {
-#if 1
             case WM_KEYDOWN:
+            case WM_SYSKEYDOWN:
+            case WM_KEYUP:
+            case WM_SYSKEYUP:
             {
-                if(Message.wParam  & 0x42)
+                DWORD VKCode = (DWORD)Message.wParam;
+                bool IsDown = ((Message.lParam & (1 << 31)) == 0);
+                bool WasDown = ((Message.lParam & (1 << 30)) != 0);
+                if(VKCode < 0) VKCode = 0;
+                if(VKCode > 255) VKCode = 255;
+                                
+                if(IsDown && !WasDown)
                 {
-                    OutputDebugString("Open File!!!\n");
-                    BasicFileOpenTest(); 
-                    OutputDebugString("Close File!!!\n"); 
+                    ActualKeys->Keys[VKCode].IsDown = true;
                 }
             }
             break;
-#endif
-
             case WM_MOUSEMOVE:
             {
                 Input->MouseX = (int)GET_X_LPARAM(Message.lParam); 
@@ -248,6 +180,94 @@ ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_b
         }
     }
 }
+
+#if 1
+PLATFORM_OPEN_FILE_EXPLORER(BasicFileOpenTest)
+{
+    // cocreate the file open dialog object
+    IFileDialog *FileDialog = NULL;
+    HRESULT Result = CoCreateInstance(CLSID_FileOpenDialog,
+                                      NULL,
+                                      CLSCTX_INPROC_SERVER,
+                                      IID_PPV_ARGS(&FileDialog));
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    
+    // set the options on the dialog
+    DWORD Flags;
+
+    // before setting, always get the options first in order
+    // not to override existing options
+    Result = FileDialog->GetOptions(&Flags);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    // in this case, get shell items only for file system items
+    Result = FileDialog->SetOptions(Flags | FOS_FORCEFILESYSTEM);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    // set the file type to display only
+    // notice that this is a 1-based array
+    Result = FileDialog->SetFileTypes(ArrayCount(c_rgSaveTypes), c_rgSaveTypes);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    Result = FileDialog->SetFileTypeIndex(INDEX_ALL_FILES);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    // set the default extencion to be ".cpp" file.
+    Result = FileDialog->SetDefaultExtension(L"cpp");
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    // show the dialog
+    Result = FileDialog->Show(NULL);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    // obtain the result once the user clicks
+    // the 'Open' button
+    // the result if an IShellItem object
+    IShellItem *SearchResult;
+    Result = FileDialog->GetResult(&SearchResult);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    // we are just going to print out the
+    // name of the file for sample sake
+    wchar_t *FilePath = NULL;
+    Result = SearchResult->GetDisplayName(SIGDN_FILESYSPATH, &FilePath);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    /*
+    TaskDialog(NULL, NULL, L"CommonFileDialogApp", FilePath, NULL,
+               TDCBF_OK_BUTTON, TD_INFORMATION_ICON, NULL);
+    */
+
+    *FileData = ReadEntireFileUnicode(FilePath, NULL, Arena);
+    
+    CoTaskMemFree(FilePath);
+
+    SearchResult->Release();
+
+    FileDialog->Release();
+
+    return true;
+}
+#endif
 
 PLATFORM_CREATE_WINDOW(PlatformCreateWindow)
 {
@@ -350,13 +370,15 @@ int WINAPI WinMain(HINSTANCE Instance,
     GlobalInstance = Instance;
     // Init the Application Storage
     app_memory AppMemory = {};
-    AppMemory.Size = Megabytes(256);
+    AppMemory.Size = Megabytes(512);
     AppMemory.Memory = VirtualAlloc(0, AppMemory.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);   
     GameSetUp(&AppMemory);
     
     app_input AppInput = {};
     mouse_buttons ActualMouseButtons = {};
     mouse_buttons OldMouseButtons = {};
+    keys ActualKeys = {};
+    keys OldKeys = {};
      
 
     window *Window = GetWindow(&AppMemory);
@@ -407,8 +429,9 @@ int WINAPI WinMain(HINSTANCE Instance,
             unsigned long long DeltaCount = ActualCount.QuadPart - LastCount.QuadPart;            
             float DeltaTime = ((float)DeltaCount / (float)Frequency.QuadPart);
 
-            ProcesInputMessages(&AppInput, &ActualMouseButtons, &OldMouseButtons);
+            ProcesInputMessages(&AppInput, &ActualMouseButtons, &OldMouseButtons, &ActualKeys, &OldKeys);
             AppInput.MouseButtons = &ActualMouseButtons;
+            AppInput.KeyboardKeys = &ActualKeys;
             AppInput.MouseDefaultX = (WND_WIDTH / 2) + GlobalWindowPosX;
             AppInput.MouseDefaultY = (WND_HEIGHT / 2) + GlobalWindowPosY;
 
@@ -422,6 +445,7 @@ int WINAPI WinMain(HINSTANCE Instance,
             Renderer->SwapChain->Present(0, 0);
             
             OldMouseButtons = ActualMouseButtons;
+            OldKeys = ActualKeys;
             AppInput.MouseWheel = 0;
             LastCount = ActualCount;
 
