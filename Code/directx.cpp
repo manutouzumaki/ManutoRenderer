@@ -10,7 +10,7 @@ D3D11Initialize(HWND Window,
                 ID3D11DepthStencilView **DepthStencilView,
                 ID3D11RasterizerState **WireFrameRasterizer,
                 ID3D11RasterizerState **FillRasterizerCullBack,
-                ID3D11RasterizerState **FillRasterizerCullNone,
+                ID3D11RasterizerState **FillRasterizerCullFront,
                 ID3D11DepthStencilState **DepthStencilOn,
                 ID3D11DepthStencilState **DepthStencilOff,
                 unsigned int WindowWidth,
@@ -157,9 +157,9 @@ D3D11Initialize(HWND Window,
     // Create Rasterizer for set render types
     D3D11_RASTERIZER_DESC FillRasterizerNoneDesc = {};
     FillRasterizerNoneDesc.FillMode = D3D11_FILL_SOLID;
-    FillRasterizerNoneDesc.CullMode = D3D11_CULL_NONE;
+    FillRasterizerNoneDesc.CullMode = D3D11_CULL_FRONT;
     FillRasterizerNoneDesc.DepthClipEnable = true;
-    (*Device)->CreateRasterizerState(&FillRasterizerNoneDesc, FillRasterizerCullNone);
+    (*Device)->CreateRasterizerState(&FillRasterizerNoneDesc, FillRasterizerCullFront);
 
     D3D11_RASTERIZER_DESC FillRasterizerBackDesc = {};
     FillRasterizerBackDesc.FillMode = D3D11_FILL_SOLID;
@@ -703,7 +703,7 @@ SetFillType(renderer *Renderer, int Type)
     }
     else if(Type == 1)
     { 
-        Renderer->RenderContext->RSSetState(Renderer->FillRasterizerCullNone);
+        Renderer->RenderContext->RSSetState(Renderer->FillRasterizerCullFront);
     }
     else if(Type == 2)
     { 

@@ -15,7 +15,7 @@ struct renderer
     ID3D11DepthStencilView* DepthStencilView;
     ID3D11RasterizerState *WireFrameRasterizer;
     ID3D11RasterizerState *FillRasterizerCullBack;
-    ID3D11RasterizerState *FillRasterizerCullNone;
+    ID3D11RasterizerState *FillRasterizerCullFront;
     ID3D11DepthStencilState *DepthStencilOn;
     ID3D11DepthStencilState *DepthStencilOff;
 

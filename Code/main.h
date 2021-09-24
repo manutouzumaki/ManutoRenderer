@@ -18,7 +18,7 @@
 #define SHIFT_CLICK 3
 
 #define SOLID_BACK_CULL 0
-#define SOLID_NONE_CULL 1
+#define SOLID_FRONT_CULL 1
 #define WIREFRAME 2
 
 #define DEPTH_STENCIL_ON 0

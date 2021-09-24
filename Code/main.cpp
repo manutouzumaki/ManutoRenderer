@@ -292,6 +292,10 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     ProcessInput(Input, GameState, DeltaTime); 
     UpdateCameraView(&GameState->Camera, Input);
     SetViewMat4(GameState->Renderer, GameState->Camera.View);
+
+    char Buffer[100];
+    sprintf(Buffer, "X: %f, Y: %f, Z: %F\n", GameState->Camera.Position.X, GameState->Camera.Position.Y, GameState->Camera.Position.Z);
+    OutputDebugString(Buffer);
     
     // move selected mesh on the camera plane...
     if(GameState->MoveMesh)
@@ -301,7 +305,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     }
     
     // Render...
-    SetFillType(GameState->Renderer, SOLID_NONE_CULL); 
+    SetFillType(GameState->Renderer, SOLID_FRONT_CULL); 
     SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_OFF);
     mat4 SkyBoxView = Mat3ToMat4(Mat4ToMat3(GameState->Camera.View));
     SetViewMat4(GameState->Renderer, SkyBoxView);

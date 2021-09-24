@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <Windowsx.h>
+#include <shobjidl.h>
+
 #include <stdio.h>
 
 #include "math.h"
@@ -34,6 +36,22 @@ static HINSTANCE GlobalInstance;
 static int GlobalWindowPosX;
 static int GlobalWindowPosY;
 
+#if 1
+static COMDLG_FILTERSPEC c_rgSaveTypes[] =
+{
+    {L"Source Code (*.cpp)",   L"*.cpp"},
+    {L"Header File (*.h)",     L"*.h"},
+    {L"Text Document (*.txt)", L"*.txt"},
+    {L"All Documents (*.*)",   L"*.*"}
+};
+
+#define INDEX_SOURCE_CODE_FILES 1
+#define INDEX_HEADER_FILES      2
+#define INDEX_TEXT_FILES        3
+#define INDEX_ALL_FILES         4
+#endif
+
+
 // function that pass data from the game to the platform specific layer 
 static window *
 GetWindow(app_memory *Memory)
@@ -56,6 +74,86 @@ GetRenderer(app_memory *Memory)
     }
     return NULL;
 }
+
+#if 1
+static HRESULT
+BasicFileOpenTest()
+{
+    // cocreate the file open dialog object
+    IFileDialog *FileDialog = NULL;
+    HRESULT Result = CoCreateInstance(CLSID_FileOpenDialog,
+                                      NULL,
+                                      CLSCTX_INPROC_SERVER,
+                                      IID_PPV_ARGS(&FileDialog));
+    if(SUCCEEDED(Result))
+    {
+        // create an event handling object, and hook it up to the dialog
+        if(SUCCEEDED(Result))
+        {
+            // hook up the event handler
+            if(SUCCEEDED(Result))
+            {
+                // set the options on the dialog
+                DWORD Flags;
+
+                // before setting, always get the options first in order
+                // not to override existing options
+                Result = FileDialog->GetOptions(&Flags);
+                if(SUCCEEDED(Result))
+                {
+                    // in this case, get shell items only for file system items
+                    Result = FileDialog->SetOptions(Flags | FOS_FORCEFILESYSTEM);
+                    if(SUCCEEDED(Result))
+                    {
+                        // set the file type to display only
+                        // notice that this is a 1-based array
+                        Result = FileDialog->SetFileTypes(ArrayCount(c_rgSaveTypes), c_rgSaveTypes);
+                        if(SUCCEEDED(Result))
+                        {
+                            Result = FileDialog->SetFileTypeIndex(INDEX_ALL_FILES);
+                            if(SUCCEEDED(Result))
+                            {
+                                // set the default extencion to be ".cpp" file.
+                                Result = FileDialog->SetDefaultExtension(L"cpp");
+                                if(SUCCEEDED(Result))
+                                {
+                                    // show the dialog
+                                    Result = FileDialog->Show(NULL);
+                                    if(SUCCEEDED(Result))
+                                    {
+                                        // obtain the result once the user clicks
+                                        // the 'Open' button
+                                        // the result if an IShellItem object
+                                        IShellItem *SearchResult;
+                                        Result = FileDialog->GetResult(&SearchResult);
+                                        if(SUCCEEDED(Result))
+                                        {
+                                            // we are just going to print out the
+                                            // name of the file for sample sake
+                                            PWSTR FilePath = NULL;
+                                            Result = SearchResult->GetDisplayName(SIGDN_FILESYSPATH, &FilePath);
+                                            if(SUCCEEDED(Result))
+                                            {
+                                                TaskDialog(NULL, NULL, L"CommonFileDialogApp", FilePath, NULL,
+                                                           TDCBF_OK_BUTTON, TD_INFORMATION_ICON, NULL);
+                                                CoTaskMemFree(FilePath);
+                                            }
+                                            SearchResult->Release();
+                                        }
+                                    }
+                                }
+                            }
+                            
+                        }
+                    }
+                } 
+            }
+        }
+        FileDialog->Release();
+    }
+    return Result;
+}
+#endif
 
 LRESULT CALLBACK WndProc(HWND   Window,
                          UINT   Message,
@@ -94,6 +192,19 @@ ProcesInputMessages(app_input *Input, mouse_buttons *ActualMouseButtons, mouse_b
     {
         switch(Message.message)
         {
+#if 1
+            case WM_KEYDOWN:
+            {
+                if(Message.wParam  & 0x42)
+                {
+                    OutputDebugString("Open File!!!\n");
+                    BasicFileOpenTest(); 
+                    OutputDebugString("Close File!!!\n"); 
+                }
+            }
+            break;
+#endif
+
             case WM_MOUSEMOVE:
             {
                 Input->MouseX = (int)GET_X_LPARAM(Message.lParam); 
@@ -178,7 +289,7 @@ PLATFORM_CREATE_RENDERER(PlatformCreateRenderer)
                     &Renderer->BackBuffer, &Renderer->DepthStencilView,
                     &Renderer->WireFrameRasterizer,
                     &Renderer->FillRasterizerCullBack,
-                    &Renderer->FillRasterizerCullNone,
+                    &Renderer->FillRasterizerCullFront,
                     &Renderer->DepthStencilOn,
                     &Renderer->DepthStencilOff,
                     Window->Width, Window->Height);
@@ -319,7 +430,7 @@ int WINAPI WinMain(HINSTANCE Instance,
         if(Renderer->DepthStencilOff) Renderer->DepthStencilOff->Release();
         if(Renderer->DepthStencilOn) Renderer->DepthStencilOn->Release();
         if(Renderer->WireFrameRasterizer) Renderer->WireFrameRasterizer->Release();
-        if(Renderer->FillRasterizerCullNone) Renderer->FillRasterizerCullNone->Release();
+        if(Renderer->FillRasterizerCullFront) Renderer->FillRasterizerCullFront->Release();
         if(Renderer->FillRasterizerCullBack) Renderer->FillRasterizerCullBack->Release();
         if(Renderer->DepthStencilView) Renderer->DepthStencilView->Release();
         if(Renderer->BackBuffer) Renderer->BackBuffer->Release();
