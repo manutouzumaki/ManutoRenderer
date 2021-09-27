@@ -313,7 +313,7 @@ PLATFORM_CREATE_RENDERER(PlatformCreateRenderer)
                     &Renderer->DepthStencilOn,
                     &Renderer->DepthStencilOff,
                     Window->Width, Window->Height);
-    InitMa4ConstBuffer(Renderer);
+    InitConstBuffers(Renderer);
     return Renderer;
 }
 

@@ -18,7 +18,6 @@ struct renderer
     ID3D11RasterizerState *FillRasterizerCullFront;
     ID3D11DepthStencilState *DepthStencilOn;
     ID3D11DepthStencilState *DepthStencilOff;
-
 };
 
 struct shader
@@ -45,6 +44,7 @@ struct mat4_constant_buffer
     mat4 World;
     mat4 Proj;
     mat4 View;
+    v3 ViewPosition;
 };
 
 struct texture

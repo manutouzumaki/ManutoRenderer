@@ -1,6 +1,12 @@
 static mat4_constant_buffer GlobalMat4ConstBuffer; 
 static ID3D11Buffer *GlobalMat4Buffer;
 
+
+//static v3_constant_buffer GlobalV3ConstBuffer; 
+//static ID3D11Buffer *GlobalV3Buffer;
+
+
+
 static void
 D3D11Initialize(HWND Window,
                 ID3D11Device **Device,
@@ -247,13 +253,13 @@ D3D11CreatePixelShader(ID3D11Device *Device, char *FileName, char *MainFuncName,
 }
 
 static void 
-InitMa4ConstBuffer(renderer *Renderer)
+InitConstBuffers(renderer *Renderer)
 {
     // Create constant Buffers and  
-    D3D11_BUFFER_DESC ConstantBufferDesc;
-    ConstantBufferDesc.ByteWidth = sizeof(mat4_constant_buffer);
-    ConstantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+    D3D11_BUFFER_DESC ConstantBufferDesc = {};
     ConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    ConstantBufferDesc.ByteWidth = (unsigned int)(sizeof(mat4_constant_buffer) + (16 - (sizeof(mat4_constant_buffer) % 16)));
+    ConstantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
     ConstantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     ConstantBufferDesc.MiscFlags = 0;
     ConstantBufferDesc.StructureByteStride = 0;
@@ -263,6 +269,7 @@ InitMa4ConstBuffer(renderer *Renderer)
         OutputDebugString("Mat4Buffer Created!\n");
     }
 }
+
 
 #define MapConstantBuffer(RenderContext, ConstBuffer, Type, Buffer) \
     do { \
@@ -295,6 +302,14 @@ SetViewMat4(renderer *Renderer, mat4 View)
     GlobalMat4ConstBuffer.View = View;
     MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
                       mat4_constant_buffer, GlobalMat4Buffer); 
+}
+
+static void
+SetViewPostion(renderer *Renderer, v3 ViewPosition)
+{
+    GlobalMat4ConstBuffer.ViewPosition = ViewPosition;
+    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
+                      mat4_constant_buffer, GlobalMat4Buffer);
 }
 
 static mesh *

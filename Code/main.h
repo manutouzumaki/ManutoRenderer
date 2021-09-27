@@ -24,6 +24,13 @@
 #define DEPTH_STENCIL_ON 0
 #define DEPTH_STENCIL_OFF 1
 
+enum states
+{
+    ENTITY_EDITOR,
+    TERRAIN_EDITOR,
+    ENTITY_SELECTOR,
+};
+
 static int
 StringLength(char * String)
 {
@@ -66,14 +73,32 @@ struct meshes_list
     int Counter;
 };
 
+struct entity
+{
+    v3 Position;
+    v3 Scale;
+    v3 Rotation;
+    unsigned int MeshIndex;
+    unsigned int TextureIndex;
+
+};
+
+struct entity_list
+{
+    entity *Entities;
+    int Counter;
+};
+
 struct game_state
 {
     window *Window;
     renderer *Renderer;
+    unsigned int State;
 
     arena RenderArena;
     arena FileArena;
     arena MeshListArena;
+    arena EntityArena;
 
     shader *Shader;
     shader *SkyboxShader;
@@ -103,6 +128,7 @@ struct game_state
     v3 Offset;
 
     meshes_list MeshList;
+    entity_list EntityList;
 };  
 
 #endif

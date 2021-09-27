@@ -1,8 +1,9 @@
 cbuffer CBufferProjection : register(b0)
 {
-   matrix World;
-   matrix Proj;
-   matrix View;
+    matrix World;
+    matrix Proj;
+    matrix View;
+    float3 ViewPosition;
 };
 
 struct VS_Input
@@ -30,10 +31,10 @@ PS_Input VS_Main( VS_Input vertex )
     vsOut.pos = mul(worldPos, View);
     vsOut.pos = mul(vsOut.pos, Proj);
     
-    float3 viewPosition = float3(10.0f, 0.0f, 0.0f);
-    float3 lightPosition = float3(10.0f, 0.0f, 0.0f);
+    //float3 viewPosition = float3(10.0f, 0.0f, 0.0f);
+    float3 lightPosition = float3(3.0f, 10.0f, 0.0f);
     float4 lightDirection = float4(lightPosition, 1.0f) - worldPos;
-    float4 viewDirection = float4(viewPosition, 1.0f) - worldPos;
+    float4 viewDirection = float4(ViewPosition, 1.0f) - worldPos;
 
     // store the texture coordinates for the pixel shader
     vsOut.tex0 = vertex.tex0;

@@ -187,41 +187,66 @@ ProcessMeshShouldMove(app_input *Input, game_state *GameState)
 static void
 ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
 {
-    // handle camera movement
-    if(MouseOnClick(Input, MIDDLE_CLICK))
+    if(Input->KeyboardKeys->Keys['1'].IsDown)
     {
-        PlatformShowCursor(false);
-        PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
+        GameState->State = ENTITY_EDITOR;
     }
-    else if(MouseDown(Input, MIDDLE_CLICK) && !MouseDown(Input, SHIFT_CLICK))
+    if(Input->KeyboardKeys->Keys['2'].IsDown)
     {
-        // click the middle button to rotate the camera around
-        ProcessCameraRotation(Input, &GameState->Camera, DeltaTime);
+        GameState->State = ENTITY_SELECTOR;
     }
-    else if(MouseDown(Input, MIDDLE_CLICK) && MouseDown(Input, SHIFT_CLICK))
+    if(Input->KeyboardKeys->Keys['3'].IsDown)
     {
-        // click shift and the middle button to move the camera around
-        ProcessCameraMovement(Input, &GameState->Camera, DeltaTime);
+        GameState->State = TERRAIN_EDITOR;
     }
-    if(MouseOnUp(Input, MIDDLE_CLICK))
+    switch(GameState->State)
     {
-        PlatformShowCursor(true);
-    }
-    ProcessCameraDistance(Input, &GameState->Camera, DeltaTime);
-    // handle meshes movement
-    if(MouseOnClick(Input, LEFT_CLICK))
-    {
-        ProcessMeshShouldMove(Input, GameState);
-    }
-    if(MouseOnUp(Input, LEFT_CLICK))
-    {
-        GameState->MoveMesh = false;
-    }
-
-    if(MouseDown(Input, RIGHT_CLICK))
-    {
-        v3 MousePositionOnTerrain = MouseRayPlaneIntersection(Input, &GameState->Camera, {0.0f, 0.0f, 0.0f}, GameState->Proj);
-        ModifyTerrainHeight(MousePositionOnTerrain, GameState->Terrain, GameState->Renderer, DeltaTime);
+        case ENTITY_EDITOR:
+        {
+            // handle camera movement
+            if(MouseOnClick(Input, MIDDLE_CLICK))
+            {
+                PlatformShowCursor(false);
+                PlatformSetCursorPosition(Input->MouseDefaultX, Input->MouseDefaultY);
+            }
+            else if(MouseDown(Input, MIDDLE_CLICK) && !MouseDown(Input, SHIFT_CLICK))
+            {
+                // click the middle button to rotate the camera around
+                ProcessCameraRotation(Input, &GameState->Camera, DeltaTime);
+            }
+            else if(MouseDown(Input, MIDDLE_CLICK) && MouseDown(Input, SHIFT_CLICK))
+            {
+                // click shift and the middle button to move the camera around
+                ProcessCameraMovement(Input, &GameState->Camera, DeltaTime);
+            }
+            if(MouseOnUp(Input, MIDDLE_CLICK))
+            {
+                PlatformShowCursor(true);
+            }
+            ProcessCameraDistance(Input, &GameState->Camera, DeltaTime);
+            // handle meshes movement
+            if(MouseOnClick(Input, LEFT_CLICK))
+            {
+                ProcessMeshShouldMove(Input, GameState);
+            }
+            if(MouseOnUp(Input, LEFT_CLICK))
+            {
+                GameState->MoveMesh = false;
+            }       
+        
+        }break;
+        case TERRAIN_EDITOR:
+        {
+            if(MouseDown(Input, RIGHT_CLICK))
+            {
+                v3 MousePositionOnTerrain = MouseRayPlaneIntersection(Input, &GameState->Camera, {0.0f, 0.0f, 0.0f}, GameState->Proj);
+                ModifyTerrainHeight(MousePositionOnTerrain, GameState->Terrain, GameState->Renderer, DeltaTime);
+            } 
+        }break;
+        case ENTITY_SELECTOR:
+        {
+        
+        };
     }
 }
 
@@ -243,6 +268,8 @@ GameSetUp(app_memory *Memory)
         {
             OutputDebugString("Renderer Initialize!\n");
             
+            GameState->State = ENTITY_EDITOR;
+
             GameState->Shader = PlatformCreateShadersFromFile(GameState->Renderer,
                                                               "../Code/main_vertex_shader.hlsl", "VS_Main",
                                                               "../Code/main_pixel_shader.hlsl", "PS_Main",
@@ -256,6 +283,7 @@ GameSetUp(app_memory *Memory)
             GameState->SphereMesh = LoadMesh("../Data/sphere_low.obj", GameState->Renderer, &GameState->FileArena);
             GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
+            
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->TerrainTexture = LoadTexture("../Data/rock.bmp", GameState->Renderer, &GameState->FileArena);
             
@@ -303,83 +331,98 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 {
     game_state *GameState = (game_state *)Memory->Memory;
     
-    // Update... 
-    ProcessInput(Input, GameState, DeltaTime); 
-    UpdateCameraView(&GameState->Camera, Input);
-    SetViewMat4(GameState->Renderer, GameState->Camera.View);
+    ProcessInput(Input, GameState, DeltaTime);
     
+    switch(GameState->State)
+    { 
+        case ENTITY_EDITOR:
+        {
+            // Update... 
+            UpdateCameraView(&GameState->Camera, Input);
+            SetViewMat4(GameState->Renderer, GameState->Camera.View);
+            SetViewPostion(GameState->Renderer, GameState->Camera.Position);
+            
+            if(Input->KeyboardKeys->Keys['Q'].IsDown)
+            {
 
-    if(Input->KeyboardKeys->Keys['Q'].IsDown)
-    {
+                GameState->MeshList.Mesh = (mesh *)PushStruct(&GameState->MeshListArena, mesh);
+                LoadMeshFromFileExplorer(GameState->MeshList.Mesh, GameState->Renderer, &GameState->FileArena);
+                ++GameState->MeshList.Counter;
+            }
+            // move selected mesh on the camera plane...
+            if(GameState->MoveMesh)
+            {
+                v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
+                GameState->SphereSelected->Position = MousePositionOnPlane - GameState->Offset;
+            }
+            
+            // Render...
+            SetFillType(GameState->Renderer, SOLID_FRONT_CULL); 
+            SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_OFF);
+            mat4 SkyBoxView = Mat3ToMat4(Mat4ToMat3(GameState->Camera.View));
+            SetViewMat4(GameState->Renderer, SkyBoxView);
+            SetTexture(GameState->SkyBoxTexture, GameState->Renderer);
+            RenderMeshIndexed(GameState->SkyBox, GameState->SkyboxShader, GameState->Renderer);
+            SetViewMat4(GameState->Renderer, GameState->Camera.View);
+            SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_ON);
+            
+            SetFillType(GameState->Renderer, WIREFRAME);
 
-        GameState->MeshList.Mesh = (mesh *)PushStruct(&GameState->MeshListArena, mesh);
-        LoadMeshFromFileExplorer(GameState->MeshList.Mesh, GameState->Renderer, &GameState->FileArena);
-        ++GameState->MeshList.Counter;
-    }
-    // move selected mesh on the camera plane...
-    if(GameState->MoveMesh)
-    {
-        v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->Proj);
-        GameState->SphereSelected->Position = MousePositionOnPlane - GameState->Offset;
-    }
-    
-    // Render...
-    SetFillType(GameState->Renderer, SOLID_FRONT_CULL); 
-    SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_OFF);
-    mat4 SkyBoxView = Mat3ToMat4(Mat4ToMat3(GameState->Camera.View));
-    SetViewMat4(GameState->Renderer, SkyBoxView);
-    SetTexture(GameState->SkyBoxTexture, GameState->Renderer);
-    RenderMeshIndexed(GameState->SkyBox, GameState->SkyboxShader, GameState->Renderer);
-    SetViewMat4(GameState->Renderer, GameState->Camera.View);
-    SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_ON);
-    
-    SetFillType(GameState->Renderer, WIREFRAME);
+            float Scale = GameState->BoundingSpheres[0].Radius;
+            mat4 World = TranslationMat4(GameState->BoundingSpheres[0].Position) * ScaleMat4({Scale, Scale, Scale});
+            SetWorldMat4(GameState->Renderer, World);
+            SetTexture(GameState->SphereTexture, GameState->Renderer);
+            RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
 
-    float Scale = GameState->BoundingSpheres[0].Radius;
-    mat4 World = TranslationMat4(GameState->BoundingSpheres[0].Position) * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->SphereTexture, GameState->Renderer);
-    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
+            Scale = GameState->BoundingSpheres[1].Radius;
+            World = TranslationMat4(GameState->BoundingSpheres[1].Position) * ScaleMat4({Scale, Scale, Scale});
+            SetWorldMat4(GameState->Renderer, World);
+            SetTexture(GameState->SphereTexture, GameState->Renderer);
+            RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
 
-    Scale = GameState->BoundingSpheres[1].Radius;
-    World = TranslationMat4(GameState->BoundingSpheres[1].Position) * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->SphereTexture, GameState->Renderer);
-    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
+            SetFillType(GameState->Renderer, SOLID_BACK_CULL);
 
-    SetFillType(GameState->Renderer, SOLID_BACK_CULL);
+            World = TranslationMat4(GameState->BoundingSpheres[0].Position);// * ScaleMat4({Scale, Scale, Scale});
+            SetWorldMat4(GameState->Renderer, World);
+            SetTexture(GameState->TreeTexture, GameState->Renderer);
+            RenderMesh(GameState->TreeMesh, GameState->Shader, GameState->Renderer);
 
-    World = TranslationMat4(GameState->BoundingSpheres[0].Position);// * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->TreeTexture, GameState->Renderer);
-    RenderMesh(GameState->TreeMesh, GameState->Shader, GameState->Renderer);
+            World = TranslationMat4(GameState->BoundingSpheres[1].Position);// * ScaleMat4({Scale, Scale, Scale});
+            SetWorldMat4(GameState->Renderer, World);
+            SetTexture(GameState->HouseTexture, GameState->Renderer);
+            RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);   
 
-    World = TranslationMat4(GameState->BoundingSpheres[1].Position);// * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->HouseTexture, GameState->Renderer);
-    RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);   
+            World = TranslationMat4(GameState->Camera.Target) * ScaleMat4({0.3f, 0.3f, 0.3f});
+            SetWorldMat4(GameState->Renderer, World);
+            SetTexture(GameState->SphereTexture, GameState->Renderer);
+            RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
 
-    World = TranslationMat4(GameState->Camera.Target) * ScaleMat4({0.3f, 0.3f, 0.3f});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->SphereTexture, GameState->Renderer);
-    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
+            World = TranslationMat4({0.0f, 0.0f, 0.0f});
+            SetWorldMat4(GameState->Renderer, World);
+            SetTexture(GameState->TerrainTexture, GameState->Renderer);
+            RenderMeshIndexed(GameState->Terrain->Mesh, GameState->Shader, GameState->Renderer);
 
-    World = TranslationMat4({0.0f, 0.0f, 0.0f});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->TerrainTexture, GameState->Renderer);
-    RenderMeshIndexed(GameState->Terrain->Mesh, GameState->Shader, GameState->Renderer);
-
-    mesh *FirstElement = GameState->MeshList.Mesh;
-    FirstElement -= (GameState->MeshList.Counter - 1);
-    for(int Index = 0;
-        Index < GameState->MeshList.Counter;
-        ++Index)
-    {
-        World = TranslationMat4({(float)Index*10.0f, 0.0f, 0.0f});
-        SetWorldMat4(GameState->Renderer, World);
-        SetTexture(GameState->SphereTexture, GameState->Renderer);
-        RenderMesh(FirstElement, GameState->Shader, GameState->Renderer);
-        ++FirstElement;
+            mesh *FirstElement = GameState->MeshList.Mesh;
+            FirstElement -= (GameState->MeshList.Counter - 1);
+            for(int Index = 0;
+                Index < GameState->MeshList.Counter;
+                ++Index)
+            {
+                World = TranslationMat4({(float)Index*10.0f, 0.0f, 0.0f});
+                SetWorldMat4(GameState->Renderer, World);
+                SetTexture(GameState->SphereTexture, GameState->Renderer);
+                RenderMesh(FirstElement, GameState->Shader, GameState->Renderer);
+                ++FirstElement;
+            }
+        }break;
+        case TERRAIN_EDITOR:
+        {
+        
+        }break;
+        case ENTITY_SELECTOR:
+        {
+        
+        }break;
     }
  
 }

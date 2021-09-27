@@ -15,7 +15,7 @@ float4 PS_Main( PS_Input input ) : SV_TARGET
     float4 surfaceColor = colorMap.Sample(colorSampler, input.tex0);
     float3 coolColor = float3(0.0f, 0.0f, 0.55f) + mul(surfaceColor.rgb, 0.25f);
     float3 warmColor = float3(0.3f, 0.3f, 0.0f) + mul(surfaceColor.rgb, 0.25f);
-    float3 highlight = float3(1.0f, 1.0f, 1.0f);
+    float3 highlight = float3(0.8f, 0.8f, 0.5f);
 
     float t = (dot(input.norm, input.lightDir) + 1.0f) / 2.0f;
 
