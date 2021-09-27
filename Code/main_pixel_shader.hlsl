@@ -6,35 +6,26 @@ struct PS_Input
     float4 pos : SV_POSITION;
     float2 tex0 : TEXCOORD0;
     float3 norm : NORMAL;
-    float3 lightVec : TEXCOORD1;
-    float3 viewVec : TEXCOORD2;
-
+    float3 viewDir : TEXCOORD1;
+    float3 lightDir : TEXCOORD2;
 };
 
-float4 PS_Main( PS_Input frag ) : SV_TARGET
-{ 
-    float3 ambientColor = float3( 0.1f, 0.1f, 0.1f );
-    float3 lightColor = float3( 0.7f, 0.7f, 0.7f );
+float4 PS_Main( PS_Input input ) : SV_TARGET
+{
+    float4 surfaceColor = colorMap.Sample(colorSampler, input.tex0);
+    float3 coolColor = float3(0.0f, 0.0f, 0.55f) + mul(surfaceColor.rgb, 0.25f);
+    float3 warmColor = float3(0.3f, 0.3f, 0.0f) + mul(surfaceColor.rgb, 0.25f);
+    float3 highlight = float3(1.0f, 1.0f, 1.0f);
 
-    float3 lightVec = normalize( frag.lightVec );
-    float3 normal = normalize( frag.norm );
+    float t = (dot(input.norm, input.lightDir) + 1.0f) / 2.0f;
 
-    float diffuseTerm = clamp( dot( normal, lightVec ), 0.0f, 1.0f );
-    float specularTerm = 0;
+    float3 r = mul(2.0f*dot(input.norm, input.lightDir), input.norm) - input.lightDir;
 
-    if( diffuseTerm > 0.0f )
-    {
-        float3 viewVec = normalize( frag.viewVec );
-        float3 halfVec = normalize( lightVec + viewVec );
-        specularTerm = pow( saturate( dot( normal, halfVec ) ), 25 );
-    }
+    float s = clamp(100.0f*dot(r, input.viewDir)-97.0f, 0.0f, 1.0f);
 
-    float4 objectColor = colorMap.Sample(colorSampler, frag.tex0);
+    float3 finalColor = mul(highlight, s) +  mul(mul(warmColor, t) + mul(coolColor, (1.0f - t)), 1.0f - s);
     
-    float3 finalColor = (ambientColor + diffuseTerm + specularTerm) * float3(objectColor.xyz);
-    float4 result = float4(finalColor, 1.0f);
-    
+    return float4(finalColor, 1.0f);
 
-    return result;
 }
 

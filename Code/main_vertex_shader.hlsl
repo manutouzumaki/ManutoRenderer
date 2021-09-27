@@ -17,25 +17,33 @@ struct PS_Input
     float4 pos : SV_POSITION;
     float2 tex0 : TEXCOORD0;
     float3 norm : NORMAL;
-    float3 lightVec : TEXCOORD1;
-    float3 viewVec : TEXCOORD2;
+    float3 viewDir : TEXCOORD1;
+    float3 lightDir : TEXCOORD2;
 };
 
 PS_Input VS_Main( VS_Input vertex )
 {   
-    float3 cameraPos = float3(0.0f, 2.0f, 5.0f);
     PS_Input vsOut = (PS_Input)0;
+    
+    // calculate the position of the vertex against the world, and projection matrix
     float4 worldPos = mul(float4(vertex.pos, 1.0f), World);
     vsOut.pos = mul(worldPos, View);
     vsOut.pos = mul(vsOut.pos, Proj);
+    
+    float3 viewPosition = float3(10.0f, 0.0f, 0.0f);
+    float3 lightPosition = float3(10.0f, 0.0f, 0.0f);
+    float4 lightDirection = float4(lightPosition, 1.0f) - worldPos;
+    float4 viewDirection = float4(viewPosition, 1.0f) - worldPos;
 
+    // store the texture coordinates for the pixel shader
     vsOut.tex0 = vertex.tex0;
+    
+    // calculate the normal vector against the world matrix only
     vsOut.norm = mul(vertex.norm, (float3x3)World);
     vsOut.norm = normalize(vsOut.norm);
+    vsOut.viewDir = normalize(viewDirection.xyz);
+    vsOut.lightDir = normalize(lightDirection.xyz);
 
-    float3 lightPos = float3(20.0f, 20.0f, 20.0f);
-    vsOut.lightVec = normalize(lightPos - worldPos.xyz);
-    vsOut.viewVec = normalize(cameraPos - worldPos.xyz);
     return vsOut;
 
 }
