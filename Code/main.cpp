@@ -277,19 +277,6 @@ LoadTextureFromFileExplorer(game_state *GameState, renderer *Renderer, arena *Ar
     }
 }
 
-
-#if 0
-static void
-LoadTextureFromFileExplorer()
-{
-    void *FileData = NULL;
-    if(BasicFileOpenTest(&FileData, Arena))
-    {
-        
-    }
-}
-#endif
-
 static void
 ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
 {
@@ -353,21 +340,25 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
         }
         // when left-click on the screen we have to add an entity in that position
         // to the eneity-list
-        if(MouseOnClick(Input, LEFT_CLICK) &&
-           GameState->MeshList.Counter > 0)
-        { 
-            v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->Camera.Target, GameState->PerspectiveProj);
-            GameState->EntityList.Entities = (entity *)PushStruct(&GameState->EntityArena, entity);
-            GameState->EntityList.Entities->Position = MousePositionOnPlane;
-            GameState->EntityList.Entities->MeshIndex = GameState->MeshSelectedIndex;
-            GameState->EntityList.Entities->BoundingSphere.Position = GameState->EntityList.Entities->Position;
-            GameState->EntityList.Entities->BoundingSphere.Radius = 1.0f; 
-            ++GameState->EntityList.Counter;
-        }
-        if(MouseOnClick(Input, RIGHT_CLICK) &&
-           GameState->TextureList.Counter > 0)
+        if(!GameState->MouseOnUI)
         {
-            ProcessEntitySetTexture(Input, GameState);
+            if(MouseOnClick(Input, LEFT_CLICK) &&
+               GameState->MeshList.Counter > 0)
+            { 
+                v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->Camera.Target, GameState->PerspectiveProj);
+                GameState->EntityList.Entities = (entity *)PushStruct(&GameState->EntityArena, entity);
+                GameState->EntityList.Entities->Position = MousePositionOnPlane;
+                GameState->EntityList.Entities->MeshIndex = GameState->MeshSelectedIndex;
+                GameState->EntityList.Entities->TextureIndex = -1;
+                GameState->EntityList.Entities->BoundingSphere.Position = GameState->EntityList.Entities->Position;
+                GameState->EntityList.Entities->BoundingSphere.Radius = 1.0f; 
+                ++GameState->EntityList.Counter;
+            }
+            if(MouseOnClick(Input, RIGHT_CLICK) &&
+               GameState->TextureList.Counter > 0)
+            {
+                ProcessEntitySetTexture(Input, GameState);
+            }
         }
     }
 
@@ -379,11 +370,11 @@ GameSetUp(app_memory *Memory)
     game_state *GameState = (game_state *)Memory->Memory;
     Memory->Use = sizeof(game_state);
     
-    InitArena(Memory, &GameState->MeshListArena, Megabytes(100));
-    InitArena(Memory, &GameState->TextureListArena, Megabytes(100));
-    InitArena(Memory, &GameState->FileArena,   Megabytes(200));
-    InitArena(Memory, &GameState->RenderArena, Megabytes(20));
-    InitArena(Memory, &GameState->EntityArena, Megabytes(40)); 
+    InitArena(Memory, &GameState->FileArena,        Megabytes(400));
+    InitArena(Memory, &GameState->EntityArena,      Kilobytes(10)); 
+    InitArena(Memory, &GameState->RenderArena,      Kilobytes(1));
+    InitArena(Memory, &GameState->MeshListArena,    Kilobytes(1));
+    InitArena(Memory, &GameState->TextureListArena, Kilobytes(1));
     
     GameState->Window = PlatformCreateWindow("Renderer", WND_WIDTH, WND_HEIGHT, &GameState->RenderArena);
     if(GameState->Window)
@@ -407,21 +398,20 @@ GameSetUp(app_memory *Memory)
                                                                 "../Code/ui_vertex_shader.hlsl", "VS_Main",
                                                                 "../Code/ui_pixel_shader.hlsl", "PS_Main",
                                                                 &GameState->FileArena);
+            GameState->MemoryUIShader = PlatformCreateShadersFromFile(GameState->Renderer,
+                                                                      "../Code/memory_vertex_shader.hlsl", "VS_Main",
+                                                                      "../Code/memory_pixel_shader.hlsl", "PS_Main",
+                                                                      &GameState->FileArena);
 
-            GameState->TreeMesh = LoadMesh("../Data/tree.obj", GameState->Renderer, &GameState->FileArena);
-            GameState->HouseMesh = LoadMesh("../Data/house.obj", GameState->Renderer, &GameState->FileArena);
-            GameState->SphereMesh = LoadMesh("../Data/sphere_low.obj", GameState->Renderer, &GameState->FileArena);
-            GameState->TreeTexture = LoadTexture("../Data/tree.bmp", GameState->Renderer, &GameState->FileArena);
-            GameState->HouseTexture = LoadTexture("../Data/house.bmp", GameState->Renderer, &GameState->FileArena);
-            
             GameState->SphereTexture = LoadTexture("../Data/green.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->TerrainTexture = LoadTexture("../Data/rock.bmp", GameState->Renderer, &GameState->FileArena);
             GameState->UITexture = LoadTexture("../Data/obj_texture.bmp", GameState->Renderer, &GameState->FileArena);
             
-            GameState->Terrain = LoadTerrain(-40.0f, 0.0f, -20.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
-
-            GameState->SkyBox = LoadCube(GameState->Renderer, &GameState->FileArena);
+            GameState->SphereMesh = LoadMesh("../Data/sphere_low.obj", GameState->Renderer, &GameState->FileArena); 
+            GameState->Terrain = LoadTerrain(-20.0f, 0.0f, -20.0f, 40, 40, 1, GameState->Renderer, &GameState->FileArena);
             GameState->UIQuad = LoadQuad(GameState->Renderer, &GameState->FileArena);
+            
+            GameState->SkyBox = LoadCube(GameState->Renderer, &GameState->FileArena);
             GameState->SkyBoxTexture = LoadCubeTexture("../Data/left.bmp", "../Data/right.bmp",
                                                        "../Data/bottom.bmp", "../Data/top.bmp",
                                                        "../Data/back.bmp","../Data/front.bmp",
@@ -433,13 +423,7 @@ GameSetUp(app_memory *Memory)
             GameState->PerspectiveProj = PerspectiveProjMat4(ToRad(60), (float)WND_WIDTH/(float)WND_HEIGHT, 0.1f, 100.0f);
             GameState->OrthogonalProj = OrthogonalProjMat4(WND_WIDTH, WND_HEIGHT, 0.1f, 100.0f);
             SetWorldMat4(GameState->Renderer, World);
-            SetProjectionMat4(GameState->Renderer, GameState->PerspectiveProj);
-
-            GameState->BoundingSpheres[0].Position = {3.0f, 0.0f, 0.0f};
-            GameState->BoundingSpheres[0].Radius = 1.0f; 
-            GameState->BoundingSpheres[1].Position = {0.0f, 0.0f, 0.0f};
-            GameState->BoundingSpheres[1].Radius = 4.0f;
-
+            SetProjectionMat4(GameState->Renderer, GameState->PerspectiveProj); 
         }
     }   
 }
@@ -464,6 +448,8 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     }
 
     // Render...
+    
+    // render sky box
     SetFillType(GameState->Renderer, SOLID_FRONT_CULL); 
     SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_OFF);
     mat4 SkyBoxView = Mat3ToMat4(Mat4ToMat3(GameState->Camera.View));
@@ -473,43 +459,21 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     SetViewMat4(GameState->Renderer, GameState->Camera.View);
     SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_ON);
     
-    SetFillType(GameState->Renderer, WIREFRAME);
-
-    float Scale = GameState->BoundingSpheres[0].Radius;
-    mat4 World = TranslationMat4(GameState->BoundingSpheres[0].Position) * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->SphereTexture, GameState->Renderer);
-    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
-
-    Scale = GameState->BoundingSpheres[1].Radius;
-    World = TranslationMat4(GameState->BoundingSpheres[1].Position) * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->SphereTexture, GameState->Renderer);
-    RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
-
     SetFillType(GameState->Renderer, SOLID_BACK_CULL);
-
-    World = TranslationMat4(GameState->BoundingSpheres[0].Position);// * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->TreeTexture, GameState->Renderer);
-    RenderMesh(GameState->TreeMesh, GameState->Shader, GameState->Renderer);
-
-    World = TranslationMat4(GameState->BoundingSpheres[1].Position);// * ScaleMat4({Scale, Scale, Scale});
-    SetWorldMat4(GameState->Renderer, World);
-    SetTexture(GameState->HouseTexture, GameState->Renderer);
-    RenderMesh(GameState->HouseMesh, GameState->Shader, GameState->Renderer);   
-
-    World = TranslationMat4(GameState->Camera.Target) * ScaleMat4({0.3f, 0.3f, 0.3f});
+    
+    // render target position
+    mat4 World = TranslationMat4(GameState->Camera.Target) * ScaleMat4({0.3f, 0.3f, 0.3f});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->SphereTexture, GameState->Renderer);
     RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
-
+    
+    // render terrain
     World = TranslationMat4({0.0f, 0.0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     SetTexture(GameState->TerrainTexture, GameState->Renderer);
     RenderMeshIndexed(GameState->Terrain->Mesh, GameState->Shader, GameState->Renderer);
 
-
+    // render entities
     if(GameState->EntityList.Counter > 0)
     {
         entity *FirstEntity = GameState->EntityList.Entities;
@@ -526,7 +490,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 
             mesh *ActualMesh = FirstMesh + FirstEntity->MeshIndex;
             texture *ActualTexture = FirstTexture + FirstEntity->TextureIndex;
-            if(GameState->TextureList.Counter <= 0) ActualTexture = GameState->SphereTexture;
+            if(GameState->TextureList.Counter <= 0 || FirstEntity->TextureIndex == -1) ActualTexture = GameState->SphereTexture;
             
             World = TranslationMat4(FirstEntity->BoundingSphere.Position);
             SetWorldMat4(GameState->Renderer, World);
@@ -544,8 +508,50 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 
 
     // UI Update and Render
+    // set the projection matrix to orthogonal for 2d rendering
+    SetProjectionMat4(GameState->Renderer,  GameState->OrthogonalProj);
+    // memory data bars
+    // first we must get the range of memory used 
+    // we have to render every arena memory bar 
+    SetTexture(GameState->SphereTexture, GameState->Renderer); 
+    // FILE ARENA
+    float MemoryUsedRange = (float)((double)GameState->FileArena.Use / (double)GameState->FileArena.Size);
+    SetMemoryData(GameState->Renderer, MemoryUsedRange);
+    World = ScaleMat4({200.0f, 20.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer); 
+    // RENDER ARENA
+    MemoryUsedRange = (float)((double)GameState->RenderArena.Use / (double)GameState->RenderArena.Size);
+    SetMemoryData(GameState->Renderer, MemoryUsedRange);
+    World = TranslationMat4({0.0f, -30.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
+    // MESH ARENA
+    MemoryUsedRange = float((double)GameState->MeshListArena.Use / (double)GameState->MeshListArena.Size);
+    SetMemoryData(GameState->Renderer, MemoryUsedRange);
+    World = TranslationMat4({0.0f, -60.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
+    // TEXTURE ARENA
+    MemoryUsedRange = float((double)GameState->TextureListArena.Use / (double)GameState->TextureListArena.Size);
+    SetMemoryData(GameState->Renderer, MemoryUsedRange);
+    World = TranslationMat4({0.0f, -90.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
+    // ENTITY ARENA
+    MemoryUsedRange = float((double)GameState->EntityArena.Use / (double)GameState->EntityArena.Size);
+    SetMemoryData(GameState->Renderer, MemoryUsedRange);
+    World = TranslationMat4({0.0f, -120.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
+
+
+
+    // meshes and textures
     if(GetBit(&GameState->StateBitField, ENTITY_SELECTOR))
     {
+        GameState->MouseOnUI = false;
+
         // mesh list ui
         mesh *FirstElement = GameState->MeshList.Mesh;
         FirstElement -= (GameState->MeshList.Counter - 1);
@@ -570,7 +576,8 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                Input->MouseX <= (ActualX + Width) &&
                -Input->MouseY <= ActualY &&
                -Input->MouseY >= (ActualY - Height))
-            {    
+            {   
+                GameState->MouseOnUI = true; 
                 SetTexture(GameState->SphereTexture, GameState->Renderer);
                 if(MouseOnClick(Input, LEFT_CLICK))
                 {
@@ -580,9 +587,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
             
             World = TranslationMat4({ActualX - WND_WIDTH*0.5f, ActualY + (WND_HEIGHT*0.5f-Height), 0.0f}) * ScaleMat4({50.0f, 50.0f, 0.0f});
             SetWorldMat4(GameState->Renderer, World);
-            SetProjectionMat4(GameState->Renderer,  GameState->OrthogonalProj);
             RenderMesh(GameState->UIQuad, GameState->UIShader, GameState->Renderer);
-            SetProjectionMat4(GameState->Renderer,  GameState->PerspectiveProj);
             ++FirstElement;
 
             ++XPos;
@@ -614,7 +619,8 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                Input->MouseX <= (ActualX + Width) &&
                -Input->MouseY <= ActualY &&
                -Input->MouseY >= (ActualY - Height))
-            {    
+            {   
+                GameState->MouseOnUI = true; 
                 SetTexture(GameState->SphereTexture, GameState->Renderer);
                 if(MouseOnClick(Input, LEFT_CLICK))
                 {
@@ -625,9 +631,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
             World = TranslationMat4({ActualX - WND_WIDTH*0.5f, ActualY + (WND_HEIGHT*0.5f-Height), 0.0f}) * ScaleMat4({50.0f, 50.0f, 0.0f});
             
             SetWorldMat4(GameState->Renderer, World);
-            SetProjectionMat4(GameState->Renderer,  GameState->OrthogonalProj);
             RenderMesh(GameState->UIQuad, GameState->UIShader, GameState->Renderer);
-            SetProjectionMat4(GameState->Renderer,  GameState->PerspectiveProj);
             ++FirstTexture;
 
             ++XPos;
@@ -636,11 +640,9 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                 XPos = 0;
                 --YPos;
             }
-
         }
-
-
-    } 
+    }
+    SetProjectionMat4(GameState->Renderer,  GameState->PerspectiveProj);
 }
 
 

@@ -111,6 +111,7 @@ struct game_state
     shader *Shader;
     shader *SkyboxShader;
     shader *UIShader;
+    shader *MemoryUIShader;
 
     mat4 PerspectiveProj;
     mat4 OrthogonalProj; 
@@ -118,23 +119,14 @@ struct game_state
 
     mesh *SkyBox;
     texture *SkyBoxTexture;
-
-    mesh *TreeMesh;
-    texture *TreeTexture;
-    mesh *HouseMesh;
-    texture *HouseTexture; 
-    mesh *SphereMesh;
-    texture *SphereTexture;
-
-    terrain *Terrain;
-    texture *TerrainTexture;
-
     mesh *UIQuad;
     texture *UITexture;
-
-
-    bounding_sphere BoundingSpheres[2];
-    
+    mesh *SphereMesh;
+    texture *SphereTexture;
+    terrain *Terrain;
+    texture *TerrainTexture;
+ 
+    bool MouseOnUI; 
     bool MoveMesh; 
     bounding_sphere *SphereSelected;
     v3 SpherePositionWhenClick;

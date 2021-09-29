@@ -45,6 +45,7 @@ struct mat4_constant_buffer
     mat4 Proj;
     mat4 View;
     v3 ViewPosition;
+    float MemoryData;
 };
 
 struct texture

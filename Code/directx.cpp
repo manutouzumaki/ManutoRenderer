@@ -312,6 +312,14 @@ SetViewPostion(renderer *Renderer, v3 ViewPosition)
                       mat4_constant_buffer, GlobalMat4Buffer);
 }
 
+static void 
+SetMemoryData(renderer *Renderer, float MemoryData)
+{
+    GlobalMat4ConstBuffer.MemoryData = MemoryData;
+    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
+                      mat4_constant_buffer, GlobalMat4Buffer);
+}
+
 static mesh *
 LoadQuad(renderer *Renderer, arena *Arena)
 {
