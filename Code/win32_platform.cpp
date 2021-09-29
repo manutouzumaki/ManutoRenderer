@@ -252,10 +252,6 @@ PLATFORM_OPEN_FILE_EXPLORER(BasicFileOpenTest)
     {
         return false;
     }
-    /*
-    TaskDialog(NULL, NULL, L"CommonFileDialogApp", FilePath, NULL,
-               TDCBF_OK_BUTTON, TD_INFORMATION_ICON, NULL);
-    */
 
     *FileData = ReadEntireFileUnicode(FilePath, NULL, Arena);
     

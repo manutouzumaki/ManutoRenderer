@@ -302,7 +302,7 @@ LoadOBJData(void *OBJFile, arena *Arena)
     PlatformFreeMemory(TempVIndex);
     PlatformFreeMemory(TempTIndex);
     PlatformFreeMemory(TempNIndex);
-    PlatformFreeMemory(OBJFile);
+    //PlatformFreeMemory(OBJFile);
 
     return Result;
 }

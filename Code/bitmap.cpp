@@ -114,7 +114,7 @@ LoadBMP(char *FileName, arena *Arena)
 }
 
 static bit_map
-LoadBMPData(void *FileData, arena *Arena)
+LoadBMPData(void *FileData)
 {
     bit_map Result = {};   
     void *BMPFile = FileData;

@@ -105,6 +105,7 @@ struct game_state
     arena RenderArena;
     arena FileArena;
     arena MeshListArena;
+    arena TextureListArena;
     arena EntityArena;
 
     shader *Shader;
@@ -144,7 +145,8 @@ struct game_state
     meshes_list MeshList;
     texture_list TextureList;
 
-    int EntitySelectedIndex;
+    int MeshSelectedIndex;
+    int TextureSelectedIndex;
 };  
 
 #endif
