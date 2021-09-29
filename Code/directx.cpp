@@ -313,6 +313,36 @@ SetViewPostion(renderer *Renderer, v3 ViewPosition)
 }
 
 static mesh *
+LoadQuad(renderer *Renderer, arena *Arena)
+{
+    mesh *Mesh = (mesh *)PushStruct(Arena, mesh);
+    float Vertices[] = {
+        1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        1.0f,  0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f,  1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f
+    };
+    
+    D3D11_BUFFER_DESC VertexBufferDesc = {};
+    VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    VertexBufferDesc.ByteWidth = sizeof(float)*ArrayCount(Vertices);
+    // Add the Vertices
+    D3D11_SUBRESOURCE_DATA ResourceData = {};
+    ResourceData.pSysMem = Vertices;
+    // Create the Buffer
+    Mesh->VertexCount = ArrayCount(Vertices);
+    HRESULT Result = Renderer->Device->CreateBuffer(&VertexBufferDesc, &ResourceData, &Mesh->VertexBuffer);
+    if(SUCCEEDED(Result))
+    {
+        OutputDebugString("Vertex Buffer Created!\n");
+    }
+    return Mesh;
+}
+
+static mesh *
 LoadCube(renderer *Renderer, arena *Arena)
 {
     mesh *Mesh = (mesh *)PushStruct(Arena, mesh);

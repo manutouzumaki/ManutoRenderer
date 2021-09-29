@@ -27,9 +27,10 @@
 enum states
 {
     ENTITY_EDITOR,
-    TERRAIN_EDITOR,
     ENTITY_SELECTOR,
 };
+
+#define BIT(Value) (1 << Value)
 
 static int
 StringLength(char * String)
@@ -73,14 +74,20 @@ struct meshes_list
     int Counter;
 };
 
+struct texture_list
+{
+    texture *Texture;
+    int Counter;
+};
+
 struct entity
 {
     v3 Position;
     v3 Scale;
     v3 Rotation;
+    bounding_sphere BoundingSphere;
     unsigned int MeshIndex;
     unsigned int TextureIndex;
-
 };
 
 struct entity_list
@@ -93,7 +100,7 @@ struct game_state
 {
     window *Window;
     renderer *Renderer;
-    unsigned int State;
+    unsigned int StateBitField;
 
     arena RenderArena;
     arena FileArena;
@@ -102,8 +109,10 @@ struct game_state
 
     shader *Shader;
     shader *SkyboxShader;
+    shader *UIShader;
 
-    mat4 Proj; 
+    mat4 PerspectiveProj;
+    mat4 OrthogonalProj; 
     arc_camera Camera;
 
     mesh *SkyBox;
@@ -119,6 +128,9 @@ struct game_state
     terrain *Terrain;
     texture *TerrainTexture;
 
+    mesh *UIQuad;
+    texture *UITexture;
+
 
     bounding_sphere BoundingSpheres[2];
     
@@ -127,8 +139,12 @@ struct game_state
     v3 SpherePositionWhenClick;
     v3 Offset;
 
-    meshes_list MeshList;
     entity_list EntityList;
+    
+    meshes_list MeshList;
+    texture_list TextureList;
+
+    int EntitySelectedIndex;
 };  
 
 #endif
