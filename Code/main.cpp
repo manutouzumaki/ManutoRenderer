@@ -246,6 +246,34 @@ ProcessEntitySetTexture(app_input *Input, game_state *GameState)
 }
 
 static void
+ProcessEntitySetShader(app_input *Input, game_state *GameState)
+{
+    float *TValues = (float *)PlatformAllocMemory(GameState->EntityList.Counter * sizeof(float));
+    entity *FirstEntity = GameState->EntityList.Entities;
+    FirstEntity -= (GameState->EntityList.Counter - 1);
+    for(int Index = 0;
+        Index < GameState->EntityList.Counter;
+        ++Index)
+    {
+        TValues[Index] = MouseRaySphereIntersection(GameState->Camera.Position,
+                         GameState->Camera.View, GameState->PerspectiveProj,
+                         FirstEntity->BoundingSphere, Input);
+        ++FirstEntity;
+    }
+    
+    FirstEntity = GameState->EntityList.Entities;
+    FirstEntity -= (GameState->EntityList.Counter - 1);
+    int Index = SearchCloserMesh(TValues, GameState->EntityList.Counter);
+    entity *ActualEntity = FirstEntity + Index;
+    if(Index >= 0)
+    {
+        ActualEntity->ShaderIndex = GameState->ShaderSelectedIndex;
+    }
+
+    PlatformFreeMemory(TValues);
+}
+
+static void
 LoadMeshFromFileExplorer(game_state *GameState, renderer *Renderer, arena *Arena)
 { 
     void *FileData = NULL;
@@ -274,6 +302,33 @@ LoadTextureFromFileExplorer(game_state *GameState, renderer *Renderer, arena *Ar
             OutputDebugString("Texture Loaded!\n");
         }
         ++GameState->TextureList.Counter;
+    }
+}
+
+static void 
+LoadShaderFromFileExplorer(game_state *GameState, renderer *Renderer, arena *Arena)
+{
+    void *VertexShaderData = NULL;
+    void *PixelShaderData = NULL;
+    int VertexShaderSize = 0;
+    int PixelShaderSize = 0;
+    if(BasicFileOpenTest(&VertexShaderData, Arena))
+    {
+        VertexShaderSize = StringLength((char *)VertexShaderData);
+        if(BasicFileOpenTest(&PixelShaderData, Arena))
+        {
+            PixelShaderSize = StringLength((char *)PixelShaderData); 
+            GameState->ShaderList.Shader = 
+                PlatformCreateShadersFromData(Renderer,
+                                              VertexShaderData, VertexShaderSize, "VS_Main",
+                                              PixelShaderData, PixelShaderSize, "PS_Main",
+                                              &GameState->ShaderListArena); 
+            if(GameState->ShaderList.Shader)
+            {
+                OutputDebugString("Shader Loaded!\n");
+            }
+            ++GameState->ShaderList.Counter;
+        }
     }
 }
 
@@ -338,26 +393,36 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
         {
             LoadTextureFromFileExplorer(GameState, GameState->Renderer, &GameState->FileArena);
         }
+        if(Input->KeyboardKeys->Keys['S'].IsDown)
+        {
+            LoadShaderFromFileExplorer(GameState, GameState->Renderer, &GameState->FileArena);
+        }
         // when left-click on the screen we have to add an entity in that position
         // to the eneity-list
         if(!GameState->MouseOnUI)
         {
-            if(MouseOnClick(Input, LEFT_CLICK) &&
-               GameState->MeshList.Counter > 0)
-            { 
-                v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->Camera.Target, GameState->PerspectiveProj);
-                GameState->EntityList.Entities = (entity *)PushStruct(&GameState->EntityArena, entity);
-                GameState->EntityList.Entities->Position = MousePositionOnPlane;
-                GameState->EntityList.Entities->MeshIndex = GameState->MeshSelectedIndex;
-                GameState->EntityList.Entities->TextureIndex = -1;
-                GameState->EntityList.Entities->BoundingSphere.Position = GameState->EntityList.Entities->Position;
-                GameState->EntityList.Entities->BoundingSphere.Radius = 1.0f; 
-                ++GameState->EntityList.Counter;
-            }
-            if(MouseOnClick(Input, RIGHT_CLICK) &&
-               GameState->TextureList.Counter > 0)
+            if(MouseOnClick(Input, LEFT_CLICK))
             {
-                ProcessEntitySetTexture(Input, GameState);
+                if(GameState->UIStateSelected == MESH_SELECTED && GameState->MeshList.Counter > 0)
+                {
+                    v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->Camera.Target, GameState->PerspectiveProj);
+                    GameState->EntityList.Entities = (entity *)PushStruct(&GameState->EntityArena, entity);
+                    GameState->EntityList.Entities->Position = MousePositionOnPlane;
+                    GameState->EntityList.Entities->MeshIndex = GameState->MeshSelectedIndex;
+                    GameState->EntityList.Entities->TextureIndex = -1;
+                    GameState->EntityList.Entities->ShaderIndex = -1;
+                    GameState->EntityList.Entities->BoundingSphere.Position = GameState->EntityList.Entities->Position;
+                    GameState->EntityList.Entities->BoundingSphere.Radius = 1.0f; 
+                    ++GameState->EntityList.Counter; 
+                }
+                if(GameState->UIStateSelected == TEXTURE_SELECTED && GameState->TextureList.Counter > 0)
+                {
+                    ProcessEntitySetTexture(Input, GameState);
+                }
+                if(GameState->UIStateSelected == SHADER_SELECTED && GameState->ShaderList.Counter > 0)
+                {
+                    ProcessEntitySetShader(Input, GameState);
+                }
             }
         }
     }
@@ -375,6 +440,7 @@ GameSetUp(app_memory *Memory)
     InitArena(Memory, &GameState->RenderArena,      Kilobytes(1));
     InitArena(Memory, &GameState->MeshListArena,    Kilobytes(1));
     InitArena(Memory, &GameState->TextureListArena, Kilobytes(1));
+    InitArena(Memory, &GameState->ShaderListArena,  Kilobytes(1));
     
     GameState->Window = PlatformCreateWindow("Renderer", WND_WIDTH, WND_HEIGHT, &GameState->RenderArena);
     if(GameState->Window)
@@ -488,14 +554,19 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
             texture *FirstTexture = GameState->TextureList.Texture;
             FirstTexture -= (GameState->TextureList.Counter - 1);
 
+            shader *FirstShader = GameState->ShaderList.Shader;
+            FirstShader -= (GameState->ShaderList.Counter - 1);
+
             mesh *ActualMesh = FirstMesh + FirstEntity->MeshIndex;
             texture *ActualTexture = FirstTexture + FirstEntity->TextureIndex;
             if(GameState->TextureList.Counter <= 0 || FirstEntity->TextureIndex == -1) ActualTexture = GameState->SphereTexture;
-            
+            shader *ActualShader = FirstShader + FirstEntity->ShaderIndex;
+            if(GameState->ShaderList.Counter <= 0 || FirstEntity->ShaderIndex == -1) ActualShader = GameState->Shader;
+
             World = TranslationMat4(FirstEntity->BoundingSphere.Position);
             SetWorldMat4(GameState->Renderer, World);
             SetTexture(ActualTexture, GameState->Renderer); 
-            RenderMesh(ActualMesh, GameState->Shader, GameState->Renderer);
+            RenderMesh(ActualMesh, ActualShader, GameState->Renderer);
             
             SetFillType(GameState->Renderer, WIREFRAME);
             SetTexture(GameState->SphereTexture, GameState->Renderer);
@@ -515,33 +586,41 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     // we have to render every arena memory bar 
     SetTexture(GameState->SphereTexture, GameState->Renderer); 
     // FILE ARENA
+    float XPos = (WND_WIDTH*0.5f) - 220.0f;
+    float YPos = (WND_HEIGHT*0.5f) - 30.0f;
     float MemoryUsedRange = (float)((double)GameState->FileArena.Use / (double)GameState->FileArena.Size);
     SetMemoryData(GameState->Renderer, MemoryUsedRange);
-    World = ScaleMat4({200.0f, 20.0f, 0.0f});
+    World = TranslationMat4({XPos, YPos, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer); 
     // RENDER ARENA
     MemoryUsedRange = (float)((double)GameState->RenderArena.Use / (double)GameState->RenderArena.Size);
     SetMemoryData(GameState->Renderer, MemoryUsedRange);
-    World = TranslationMat4({0.0f, -30.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    World = TranslationMat4({XPos, YPos - 30.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
     // MESH ARENA
     MemoryUsedRange = float((double)GameState->MeshListArena.Use / (double)GameState->MeshListArena.Size);
     SetMemoryData(GameState->Renderer, MemoryUsedRange);
-    World = TranslationMat4({0.0f, -60.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    World = TranslationMat4({XPos, YPos - 60.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
     // TEXTURE ARENA
     MemoryUsedRange = float((double)GameState->TextureListArena.Use / (double)GameState->TextureListArena.Size);
     SetMemoryData(GameState->Renderer, MemoryUsedRange);
-    World = TranslationMat4({0.0f, -90.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    World = TranslationMat4({XPos, YPos - 90.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    SetWorldMat4(GameState->Renderer, World);
+    RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
+    // SHADER ARENA
+    MemoryUsedRange = float((double)GameState->ShaderListArena.Use / (double)GameState->ShaderListArena.Size);
+    SetMemoryData(GameState->Renderer, MemoryUsedRange);
+    World = TranslationMat4({XPos, YPos - 120.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
     // ENTITY ARENA
     MemoryUsedRange = float((double)GameState->EntityArena.Use / (double)GameState->EntityArena.Size);
     SetMemoryData(GameState->Renderer, MemoryUsedRange);
-    World = TranslationMat4({0.0f, -120.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
+    World = TranslationMat4({XPos, YPos - 150.0f, 0.0f}) * ScaleMat4({200.0f, 20.0f, 0.0f});
     SetWorldMat4(GameState->Renderer, World);
     RenderMesh(GameState->UIQuad, GameState->MemoryUIShader, GameState->Renderer);
 
@@ -582,6 +661,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                 if(MouseOnClick(Input, LEFT_CLICK))
                 {
                     GameState->MeshSelectedIndex = Index;
+                    GameState->UIStateSelected = MESH_SELECTED;
                 }
             }
             
@@ -602,7 +682,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 
         // texture list ui 
         XPos = 0.0f;
-        YPos = (WND_HEIGHT*-0.5f) / Height;
+        --YPos;// = (WND_HEIGHT*-0.5f) / Height;
 
         texture *FirstTexture = GameState->TextureList.Texture;
         FirstTexture -= (GameState->TextureList.Counter - 1);
@@ -625,6 +705,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                 if(MouseOnClick(Input, LEFT_CLICK))
                 {
                     GameState->TextureSelectedIndex = Index;
+                    GameState->UIStateSelected = TEXTURE_SELECTED;
                 }
             }
                  
@@ -641,6 +722,51 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                 --YPos;
             }
         }
+
+
+        // shader list ui 
+        XPos = 0.0f;
+        --YPos;// = ((WND_HEIGHT*-0.5f) + ((WND_HEIGHT*-0.5f)*0.5f)) / Height;
+
+        shader *FirstShader = GameState->ShaderList.Shader;
+        FirstShader -= (GameState->ShaderList.Counter - 1);
+
+        for(int Index = 0;
+            Index < GameState->ShaderList.Counter;
+            ++Index)
+        {            
+            float ActualX = (XPos * (Width + XOffset));
+            float ActualY = (YPos * (Height + YOffset));
+
+            SetTexture(GameState->UITexture, GameState->Renderer);
+            if(Input->MouseX >= ActualX &&
+               Input->MouseX <= (ActualX + Width) &&
+               -Input->MouseY <= ActualY &&
+               -Input->MouseY >= (ActualY - Height))
+            {   
+                GameState->MouseOnUI = true; 
+                SetTexture(GameState->SphereTexture, GameState->Renderer);
+                if(MouseOnClick(Input, LEFT_CLICK))
+                {
+                    GameState->ShaderSelectedIndex = Index;
+                    GameState->UIStateSelected = SHADER_SELECTED;
+                }
+            }
+                 
+            World = TranslationMat4({ActualX - WND_WIDTH*0.5f, ActualY + (WND_HEIGHT*0.5f-Height), 0.0f}) * ScaleMat4({50.0f, 50.0f, 0.0f});
+            
+            SetWorldMat4(GameState->Renderer, World);
+            RenderMesh(GameState->UIQuad, GameState->UIShader, GameState->Renderer);
+            ++FirstTexture;
+
+            ++XPos;
+            if(XPos >= 4)
+            {
+                XPos = 0;
+                --YPos;
+            }
+        }
+
     }
     SetProjectionMat4(GameState->Renderer,  GameState->PerspectiveProj);
 }

@@ -149,6 +149,7 @@ D3D11Initialize(HWND Window,
     (*Device)->CreateBlendState(&BlendStateDesc, &AlphaBlend);
 
     (*RenderContext)->OMSetBlendState(AlphaBlend, 0, 0xffffffff);
+    AlphaBlend->Release();
 
     // -4: Set the viewport.
     D3D11_VIEWPORT Viewport;
@@ -251,6 +252,78 @@ D3D11CreatePixelShader(ID3D11Device *Device, char *FileName, char *MainFuncName,
     OutputDebugString("PIXEL_SHADER::CREATED\n");
     return true;
 }
+
+
+
+// Dinamy Vertex and Pixel Shader loaders and Compiler
+static ID3DBlob *
+D3D11CompileShaderData(void *FileData, int Size, char *MainFuncName, char *ShaderVersion, arena *Arena)
+{
+    ID3DBlob *ShaderCompiled = 0;
+    ID3DBlob *ErrorShader    = 0;
+
+    HRESULT Result = D3DCompile(FileData,
+                                (SIZE_T)Size,
+                                0, 0, 0, MainFuncName, ShaderVersion,
+                                D3DCOMPILE_ENABLE_STRICTNESS, 0,
+                                &ShaderCompiled, &ErrorShader);
+    if(ErrorShader == NULL)
+    {
+        return ShaderCompiled;
+    }
+    OutputDebugString((char *)ErrorShader->GetBufferPointer());
+    ErrorShader->Release();
+    return NULL;
+}
+
+static bool
+D3D11CreateVertexShaderData(ID3D11Device *Device, void *FileData, int Size, char *MainFuncName,
+                        ID3D11VertexShader **VertexShader,
+                        ID3D11InputLayout **InputLayout,
+                        D3D11_INPUT_ELEMENT_DESC *InputLayoutDesc,
+                        unsigned int TotalLayoutElements, arena *Arena)
+{
+    HRESULT Result;
+    ID3DBlob *ShaderCompiled = D3D11CompileShaderData(FileData, Size, MainFuncName, "vs_4_0", Arena);
+    Result = Device->CreateVertexShader(ShaderCompiled->GetBufferPointer(),
+                                        ShaderCompiled->GetBufferSize(), 0,
+                                        VertexShader);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    Result = Device->CreateInputLayout(InputLayoutDesc,
+                                       TotalLayoutElements,
+                                       ShaderCompiled->GetBufferPointer(),
+                                       ShaderCompiled->GetBufferSize(),
+                                       InputLayout);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    ShaderCompiled->Release();
+    OutputDebugString("VERTEX_SHADER::CREATED\n");
+    return true;
+}
+
+static bool
+D3D11CreatePixelShaderData(ID3D11Device *Device, void *FileData, int Size, char *MainFuncName,
+                       ID3D11PixelShader **PixelShader, arena *Arena)
+{
+    HRESULT Result;
+    ID3DBlob *ShaderCompiled = D3D11CompileShaderData(FileData, Size, MainFuncName, "ps_4_0", Arena);
+    Result = Device->CreatePixelShader(ShaderCompiled->GetBufferPointer(),
+                                       ShaderCompiled->GetBufferSize(), 0,
+                                       PixelShader);
+    if(!SUCCEEDED(Result))
+    {
+        return false;
+    }
+    ShaderCompiled->Release();
+    OutputDebugString("PIXEL_SHADER::CREATED\n");
+    return true;
+}
+
 
 static void 
 InitConstBuffers(renderer *Renderer)

@@ -30,6 +30,13 @@ enum states
     ENTITY_SELECTOR,
 };
 
+enum ui_state
+{
+    MESH_SELECTED,
+    TEXTURE_SELECTED,
+    SHADER_SELECTED
+};
+
 #define BIT(Value) (1 << Value)
 
 static int
@@ -80,6 +87,12 @@ struct texture_list
     int Counter;
 };
 
+struct shader_list
+{
+    shader *Shader;
+    int Counter;
+};
+
 struct entity
 {
     v3 Position;
@@ -88,6 +101,7 @@ struct entity
     bounding_sphere BoundingSphere;
     unsigned int MeshIndex;
     unsigned int TextureIndex;
+    unsigned int ShaderIndex;
 };
 
 struct entity_list
@@ -106,6 +120,7 @@ struct game_state
     arena FileArena;
     arena MeshListArena;
     arena TextureListArena;
+    arena ShaderListArena;
     arena EntityArena;
 
     shader *Shader;
@@ -136,9 +151,12 @@ struct game_state
     
     meshes_list MeshList;
     texture_list TextureList;
-
+    shader_list ShaderList;
+    
+    int UIStateSelected;
     int MeshSelectedIndex;
     int TextureSelectedIndex;
+    int ShaderSelectedIndex;
 };  
 
 #endif

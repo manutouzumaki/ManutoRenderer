@@ -335,6 +335,26 @@ PLATFORM_CREATE_SHADERS_FROM_FILE(PlatformCreateShadersFromFile)
         return Shader;
 }
 
+PLATFORM_CREATE_SHADERS_FROM_DATA(PlatformCreateShadersFromData)
+{
+        shader *Shader = (shader *)PushStruct(Arena, shader); 
+        D3D11_INPUT_ELEMENT_DESC InputLayoutDesc[] =
+        {
+            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
+            0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,
+            0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+            {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT,
+            0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0}
+        };
+        D3D11CreateVertexShaderData(Renderer->Device, VertexShaderData, VSize, VSMainFunc,
+                                &Shader->VertexShader, &Shader->InputLayout, InputLayoutDesc,
+                                ArrayCount(InputLayoutDesc), Arena);
+        D3D11CreatePixelShaderData(Renderer->Device, PixelShaderData, PSize, PSMainFunc,
+                               &Shader->PixelShader, Arena);
+        return Shader;
+}
+
 PLATFORM_ALLOC_MEMORY(PlatformAllocMemory)
 {
     void *Result = NULL; 

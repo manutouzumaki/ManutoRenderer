@@ -11,8 +11,11 @@ struct shader;
 #define PLATFORM_OPEN_FILE_EXPLORER(name) bool name(void **FileData, arena *Arena)
 #define PLATFORM_CREATE_WINDOW(name) window *name(char * WindowName, int WindowWidth, int WindowHeight, arena *Arena)
 #define PLATFORM_CREATE_RENDERER(name) renderer *name(window *Window, arena *Arena)
-#define PLATFORM_CREATE_SHADERS_FROM_FILE(name) shader *name(renderer *Renderer, char * VertexShaderFileName, \
+#define PLATFORM_CREATE_SHADERS_FROM_FILE(name) shader *name(renderer *Renderer, char *VertexShaderFileName, \
                                                              char *VSMainFunc, char *PixelShaderFileName, \
+                                                             char *PSMainFunc, arena *Arena)
+#define PLATFORM_CREATE_SHADERS_FROM_DATA(name) shader *name(renderer *Renderer, void *VertexShaderData, int VSize,\
+                                                             char *VSMainFunc, void *PixelShaderData, int PSize,\
                                                              char *PSMainFunc, arena *Arena)
 #define PLATFORM_ALLOC_MEMORY(name) void* name(size_t Size)
 #define PLATFORM_FREE_MEMORY(name) void name(void *Memory)
@@ -24,6 +27,7 @@ PLATFORM_OPEN_FILE_EXPLORER(BasicFileOpenTest);
 PLATFORM_CREATE_WINDOW(PlatformCreateWindow);
 PLATFORM_CREATE_RENDERER(PlatformCreateRenderer);
 PLATFORM_CREATE_SHADERS_FROM_FILE(PlatformCreateShadersFromFile);
+PLATFORM_CREATE_SHADERS_FROM_DATA(PlatformCreateShadersFromData);
 PLATFORM_ALLOC_MEMORY(PlatformAllocMemory);
 PLATFORM_FREE_MEMORY(PlatformFreeMemory);
 PLATFORM_SHOW_CURSOR(PlatformShowCursor);
