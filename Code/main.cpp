@@ -514,7 +514,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     }
 
     // Render...
-    
+
     // render sky box
     SetFillType(GameState->Renderer, SOLID_FRONT_CULL); 
     SetDepthStencilState(GameState->Renderer, DEPTH_STENCIL_OFF);

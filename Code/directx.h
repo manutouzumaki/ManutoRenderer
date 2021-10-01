@@ -13,11 +13,17 @@ struct renderer
     IDXGISwapChain *SwapChain;
     ID3D11RenderTargetView *BackBuffer;
     ID3D11DepthStencilView* DepthStencilView;
+    // Render Types..
     ID3D11RasterizerState *WireFrameRasterizer;
     ID3D11RasterizerState *FillRasterizerCullBack;
     ID3D11RasterizerState *FillRasterizerCullFront;
+    // Stencil and Depth buffer
     ID3D11DepthStencilState *DepthStencilOn;
     ID3D11DepthStencilState *DepthStencilOff;
+    // Alpha Blend Types
+    ID3D11BlendState *AlphaBlendEnable;
+    ID3D11BlendState *AlphaBlendDisable;
+
 };
 
 struct shader

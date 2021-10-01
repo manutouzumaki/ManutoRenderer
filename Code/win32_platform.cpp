@@ -308,6 +308,8 @@ PLATFORM_CREATE_RENDERER(PlatformCreateRenderer)
                     &Renderer->FillRasterizerCullFront,
                     &Renderer->DepthStencilOn,
                     &Renderer->DepthStencilOff,
+                    &Renderer->AlphaBlendEnable,
+                    &Renderer->AlphaBlendDisable,
                     Window->Width, Window->Height);
     InitConstBuffers(Renderer);
     return Renderer;

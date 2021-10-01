@@ -17,6 +17,7 @@ struct VS_Input
 struct PS_Input
 {
     float4 pos : SV_POSITION;  // clip space position
+    float3 worldPos : TEXCOORD0;
 };
 
 PS_Input VS_Main( VS_Input vertex )
@@ -26,6 +27,7 @@ PS_Input VS_Main( VS_Input vertex )
     float4 worldPos = mul(float4(vertex.pos, 1.0f), World);
     vsOut.pos = mul(worldPos, View);
     vsOut.pos = mul(vsOut.pos, Proj);
+    vsOut.worldPos = worldPos.xyz;
 
     return vsOut;
 

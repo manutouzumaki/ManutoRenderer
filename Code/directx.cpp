@@ -19,6 +19,8 @@ D3D11Initialize(HWND Window,
                 ID3D11RasterizerState **FillRasterizerCullFront,
                 ID3D11DepthStencilState **DepthStencilOn,
                 ID3D11DepthStencilState **DepthStencilOff,
+                ID3D11BlendState **AlphaBlendEnable,
+                ID3D11BlendState **AlphaBlendDisable,
                 unsigned int WindowWidth,
                 unsigned int WindowHeight)
 {
@@ -135,9 +137,8 @@ D3D11Initialize(HWND Window,
     (*RenderContext)->OMSetRenderTargets(1, BackBuffer, *DepthStencilView);
 
     // Turn on Alpha blending
-    ID3D11BlendState* AlphaBlend = 0;
     D3D11_BLEND_DESC BlendStateDesc = {};
-    BlendStateDesc.RenderTarget[0].BlendEnable = TRUE;
+    BlendStateDesc.RenderTarget[0].BlendEnable = true;
     BlendStateDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
     BlendStateDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
     BlendStateDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
@@ -145,11 +146,13 @@ D3D11Initialize(HWND Window,
     BlendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
     BlendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
     BlendStateDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    BlendStateDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    (*Device)->CreateBlendState(&BlendStateDesc, &AlphaBlend);
+    (*Device)->CreateBlendState(&BlendStateDesc, AlphaBlendEnable);
 
-    (*RenderContext)->OMSetBlendState(AlphaBlend, 0, 0xffffffff);
-    AlphaBlend->Release();
+    BlendStateDesc.RenderTarget[0].BlendEnable = false;
+    BlendStateDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    (*Device)->CreateBlendState(&BlendStateDesc, AlphaBlendDisable);
+
+    (*RenderContext)->OMSetBlendState(*AlphaBlendDisable, 0, 0xffffffff);
 
     // -4: Set the viewport.
     D3D11_VIEWPORT Viewport;
@@ -722,18 +725,18 @@ LoadTextureToTextureArray(void *BMPFile, texture *Texture, renderer *Renderer, a
     D3D11_TEXTURE2D_DESC TextureDesc = {}; 
     TextureDesc.Width = Bitmap.Width;
     TextureDesc.Height = Bitmap.Height;
-    TextureDesc.MipLevels = 1;
+    TextureDesc.MipLevels = 0; // generate a full set of subtextures
     TextureDesc.ArraySize = 1;
     TextureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;//DXGI_FORMAT_R8G8B8A8_UNORM;
     TextureDesc.SampleDesc.Count = 1;
     TextureDesc.SampleDesc.Quality = 0;
     TextureDesc.Usage = D3D11_USAGE_DEFAULT;
-    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
     TextureDesc.CPUAccessFlags = 0;
-    TextureDesc.MiscFlags = 0;
+    TextureDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
     ID3D11Texture2D *TempTexture;
-    HRESULT Result = Renderer->Device->CreateTexture2D(&TextureDesc, &Data, &TempTexture);
+    HRESULT Result = Renderer->Device->CreateTexture2D(&TextureDesc, NULL, &TempTexture);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("SUCCEEDED Creating texture\n");
@@ -742,13 +745,16 @@ LoadTextureToTextureArray(void *BMPFile, texture *Texture, renderer *Renderer, a
     D3D11_SHADER_RESOURCE_VIEW_DESC ShaderResourceDesc = {};
     ShaderResourceDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;// DXGI_FORMAT_R8G8B8A8_UNORM;
     ShaderResourceDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    ShaderResourceDesc.Texture2D.MipLevels = -1;
     ShaderResourceDesc.Texture2D.MostDetailedMip = 0;
-    ShaderResourceDesc.Texture2D.MipLevels = 1;
     Result = Renderer->Device->CreateShaderResourceView(TempTexture, &ShaderResourceDesc, &Texture->ColorMap);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("SUCCEEDED Creating Shader resource view\n");
     }
+    Renderer->RenderContext->UpdateSubresource(TempTexture, 0, 0, Data.pSysMem, Data.SysMemPitch, 0);
+    Renderer->RenderContext->GenerateMips(Texture->ColorMap);
+
     TempTexture->Release();
 
     D3D11_SAMPLER_DESC ColorMapDesc = {};
@@ -780,18 +786,18 @@ LoadTexture(char *TextureFileName, renderer *Renderer, arena *Arena)
     D3D11_TEXTURE2D_DESC TextureDesc = {}; 
     TextureDesc.Width = Bitmap.Width;
     TextureDesc.Height = Bitmap.Height;
-    TextureDesc.MipLevels = 1;
+    TextureDesc.MipLevels = 0; // generate a full set of subtextures
     TextureDesc.ArraySize = 1;
     TextureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;//DXGI_FORMAT_R8G8B8A8_UNORM;
     TextureDesc.SampleDesc.Count = 1;
     TextureDesc.SampleDesc.Quality = 0;
     TextureDesc.Usage = D3D11_USAGE_DEFAULT;
-    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
     TextureDesc.CPUAccessFlags = 0;
-    TextureDesc.MiscFlags = 0;
+    TextureDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
     ID3D11Texture2D *TempTexture;
-    HRESULT Result = Renderer->Device->CreateTexture2D(&TextureDesc, &Data, &TempTexture);
+    HRESULT Result = Renderer->Device->CreateTexture2D(&TextureDesc, NULL, &TempTexture);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("SUCCEEDED Creating texture\n");
@@ -800,14 +806,18 @@ LoadTexture(char *TextureFileName, renderer *Renderer, arena *Arena)
     D3D11_SHADER_RESOURCE_VIEW_DESC ShaderResourceDesc = {};
     ShaderResourceDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;// DXGI_FORMAT_R8G8B8A8_UNORM;
     ShaderResourceDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    ShaderResourceDesc.Texture2D.MipLevels = -1;
     ShaderResourceDesc.Texture2D.MostDetailedMip = 0;
-    ShaderResourceDesc.Texture2D.MipLevels = 1;
     Result = Renderer->Device->CreateShaderResourceView(TempTexture, &ShaderResourceDesc, &Texture->ColorMap);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("SUCCEEDED Creating Shader resource view\n");
     }
+    Renderer->RenderContext->UpdateSubresource(TempTexture, 0, 0, Data.pSysMem, Data.SysMemPitch, 0);
+    Renderer->RenderContext->GenerateMips(Texture->ColorMap);
+
     TempTexture->Release();
+
 
     D3D11_SAMPLER_DESC ColorMapDesc = {};
     ColorMapDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -924,6 +934,19 @@ SetDepthStencilState(renderer *Renderer, int Type)
     else if(Type == 1)
     { 
         Renderer->RenderContext->OMSetDepthStencilState(Renderer->DepthStencilOff, 1);
+    }
+}
+
+static void 
+SetAlphaBlend(renderer *Renderer, bool Value)
+{
+    if(Value)
+    {
+        Renderer->RenderContext->OMSetBlendState(Renderer->AlphaBlendEnable, 0, 0xffffffff);
+    }
+    else
+    {
+        Renderer->RenderContext->OMSetBlendState(Renderer->AlphaBlendDisable, 0, 0xffffffff);
     }
 }
 
