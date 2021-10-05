@@ -215,7 +215,6 @@ ProcessMeshShouldMove(app_input *Input, game_state *GameState)
         GameState->Offset = MousePositionOnPlane - SphereSelected->Position;
         GameState->MoveMesh = true;
     }
-
     PlatformFreeMemory(TValues);
 }
 
@@ -271,7 +270,33 @@ ProcessEntitySetShader(app_input *Input, game_state *GameState)
     {
         ActualEntity->ShaderIndex = GameState->ShaderSelectedIndex;
     }
+    PlatformFreeMemory(TValues);
+}
 
+static void
+ProcessEntitySetAlpha(app_input *Input, game_state *GameState)
+{
+    float *TValues = (float *)PlatformAllocMemory(GameState->EntityList.Counter * sizeof(float));
+    entity *FirstEntity = GameState->EntityList.Entities;
+    FirstEntity -= (GameState->EntityList.Counter - 1);
+    for(int Index = 0;
+        Index < GameState->EntityList.Counter;
+        ++Index)
+    {
+        TValues[Index] = MouseRaySphereIntersection(GameState->Camera.Position,
+                         GameState->Camera.View, GameState->PerspectiveProj,
+                         FirstEntity->BoundingSphere, Input);
+        ++FirstEntity;
+    }
+    
+    FirstEntity = GameState->EntityList.Entities;
+    FirstEntity -= (GameState->EntityList.Counter - 1);
+    int Index = SearchCloserMesh(TValues, GameState->EntityList.Counter);
+    entity *ActualEntity = FirstEntity + Index;
+    if(Index >= 0)
+    {
+        ActualEntity->HasAlpha = GameState->AlphaValueSelected;
+    }
     PlatformFreeMemory(TValues);
 }
 
@@ -448,6 +473,7 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
                     GameState->EntityList.Entities->BoundingSphere.Position = GameState->EntityList.Entities->Position;
                     GameState->EntityList.Entities->BoundingSphere.Radius = 1.0f;
                     GameState->EntityList.Entities->ID = GameState->EntityList.Counter; 
+                    GameState->EntityList.Entities->HasAlpha = false;
                     ++GameState->EntityList.Counter; 
                 }
                 if(GameState->UIStateSelected == TEXTURE_SELECTED &&
@@ -459,6 +485,10 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
                    GameState->ShaderList.Counter > 0)
                 {
                     ProcessEntitySetShader(Input, GameState);
+                }
+                if(GameState->UIStateSelected == ALPHA_SELECTED)
+                {
+                    ProcessEntitySetAlpha(Input, GameState);
                 } 
             }
         }
@@ -600,7 +630,41 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     RenderMesh(GameState->SphereMesh, GameState->Shader, GameState->Renderer);
 
     // render entities
+    // fist we render all the solid opaque entities
+    if(GameState->EntityList.Counter > 0)
+    {
+        entity *FirstEntity = GameState->EntityList.Entities;
+        FirstEntity -= (GameState->EntityList.Counter - 1);
+        for(int Index = 0;
+            Index < GameState->EntityList.Counter;
+            ++Index)
+        {
+            if(!FirstEntity->HasAlpha)
+            {
+                mesh *FirstMesh = GameState->MeshList.Mesh;
+                FirstMesh -= (GameState->MeshList.Counter - 1);
+                
+                texture *FirstTexture = GameState->TextureList.Texture;
+                FirstTexture -= (GameState->TextureList.Counter - 1);
 
+                shader *FirstShader = GameState->ShaderList.Shader;
+                FirstShader -= (GameState->ShaderList.Counter - 1);
+
+                mesh *ActualMesh = FirstMesh + FirstEntity->MeshIndex;
+                texture *ActualTexture = FirstTexture + FirstEntity->TextureIndex;
+                if(GameState->TextureList.Counter <= 0 || FirstEntity->TextureIndex == -1) ActualTexture = GameState->SphereTexture;
+                shader *ActualShader = FirstShader + FirstEntity->ShaderIndex;
+                if(GameState->ShaderList.Counter <= 0 || FirstEntity->ShaderIndex == -1) ActualShader = GameState->Shader;
+
+                World = TranslationMat4(FirstEntity->BoundingSphere.Position);
+                SetWorldMat4(GameState->Renderer, World);
+                SetTexture(ActualTexture, GameState->Renderer);
+                RenderMesh(ActualMesh, ActualShader, GameState->Renderer);
+            }
+            ++FirstEntity;
+        } 
+    }
+    // then render all transparent and translucid entities
     SetAlphaBlend(GameState->Renderer, true);
     if(GameState->EntityList.Counter > 0)
     {
@@ -615,30 +679,32 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
             Index < GameState->EntityList.Counter;
             ++Index)
         {
-            mesh *FirstMesh = GameState->MeshList.Mesh;
-            FirstMesh -= (GameState->MeshList.Counter - 1);
-            
-            texture *FirstTexture = GameState->TextureList.Texture;
-            FirstTexture -= (GameState->TextureList.Counter - 1);
+            if(FirstEntity->HasAlpha)
+            {
+                mesh *FirstMesh = GameState->MeshList.Mesh;
+                FirstMesh -= (GameState->MeshList.Counter - 1);
+                
+                texture *FirstTexture = GameState->TextureList.Texture;
+                FirstTexture -= (GameState->TextureList.Counter - 1);
 
-            shader *FirstShader = GameState->ShaderList.Shader;
-            FirstShader -= (GameState->ShaderList.Counter - 1);
+                shader *FirstShader = GameState->ShaderList.Shader;
+                FirstShader -= (GameState->ShaderList.Counter - 1);
 
-            mesh *ActualMesh = FirstMesh + FirstEntity->MeshIndex;
-            texture *ActualTexture = FirstTexture + FirstEntity->TextureIndex;
-            if(GameState->TextureList.Counter <= 0 || FirstEntity->TextureIndex == -1) ActualTexture = GameState->SphereTexture;
-            shader *ActualShader = FirstShader + FirstEntity->ShaderIndex;
-            if(GameState->ShaderList.Counter <= 0 || FirstEntity->ShaderIndex == -1) ActualShader = GameState->Shader;
+                mesh *ActualMesh = FirstMesh + FirstEntity->MeshIndex;
+                texture *ActualTexture = FirstTexture + FirstEntity->TextureIndex;
+                if(GameState->TextureList.Counter <= 0 || FirstEntity->TextureIndex == -1) ActualTexture = GameState->SphereTexture;
+                shader *ActualShader = FirstShader + FirstEntity->ShaderIndex;
+                if(GameState->ShaderList.Counter <= 0 || FirstEntity->ShaderIndex == -1) ActualShader = GameState->Shader;
 
-            World = TranslationMat4(FirstEntity->BoundingSphere.Position);
-            SetWorldMat4(GameState->Renderer, World);
-            SetTexture(ActualTexture, GameState->Renderer);
+                World = TranslationMat4(FirstEntity->BoundingSphere.Position);
+                SetWorldMat4(GameState->Renderer, World);
+                SetTexture(ActualTexture, GameState->Renderer);
 
-            SetFillType(GameState->Renderer, SOLID_FRONT_CULL);
-            RenderMesh(ActualMesh, ActualShader, GameState->Renderer);
-            SetFillType(GameState->Renderer, SOLID_BACK_CULL);
-            RenderMesh(ActualMesh, ActualShader, GameState->Renderer);
-
+                SetFillType(GameState->Renderer, SOLID_FRONT_CULL);
+                RenderMesh(ActualMesh, ActualShader, GameState->Renderer);
+                SetFillType(GameState->Renderer, SOLID_BACK_CULL);
+                RenderMesh(ActualMesh, ActualShader, GameState->Renderer);
+            }
             ++FirstEntity;
         } 
     }
@@ -646,8 +712,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 
     // UI Update and Render
     // set the projection matrix to orthogonal for 2d rendering
-    SetProjectionMat4(GameState->Renderer,  GameState->OrthogonalProj);
-        
+    SetProjectionMat4(GameState->Renderer,  GameState->OrthogonalProj);     
     // memory data bars
     // first we must get the range of memory used 
     // we have to render every arena memory bar 
@@ -746,7 +811,6 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
 
         }
         
-
         // texture list ui 
         XPos = 0.0f;
         --YPos;// = (WND_HEIGHT*-0.5f) / Height;
@@ -790,7 +854,6 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
             }
         }
 
-
         // shader list ui 
         XPos = 0.0f;
         --YPos;// = ((WND_HEIGHT*-0.5f) + ((WND_HEIGHT*-0.5f)*0.5f)) / Height;
@@ -817,6 +880,46 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                 {
                     GameState->ShaderSelectedIndex = Index;
                     GameState->UIStateSelected = SHADER_SELECTED;
+                }
+            }
+                 
+            World = TranslationMat4({ActualX - WND_WIDTH*0.5f, ActualY + (WND_HEIGHT*0.5f-Height), 0.0f}) * ScaleMat4({50.0f, 50.0f, 0.0f});
+            
+            SetWorldMat4(GameState->Renderer, World);
+            RenderMesh(GameState->UIQuad, GameState->UIShader, GameState->Renderer);
+            ++FirstTexture;
+
+            ++XPos;
+            if(XPos >= 4)
+            {
+                XPos = 0;
+                --YPos;
+            }
+        }
+
+        // alpha render ui 
+        XPos = 0.0f;
+        --YPos;// = ((WND_HEIGHT*-0.5f) + ((WND_HEIGHT*-0.5f)*0.5f)) / Height;
+
+        for(int Index = 0;
+            Index < 2;
+            ++Index)
+        {            
+            float ActualX = (XPos * (Width + XOffset));
+            float ActualY = (YPos * (Height + YOffset));
+
+            SetTexture(GameState->UITexture, GameState->Renderer);
+            if(Input->MouseX >= ActualX &&
+               Input->MouseX <= (ActualX + Width) &&
+               -Input->MouseY <= ActualY &&
+               -Input->MouseY >= (ActualY - Height))
+            {   
+                GameState->MouseOnUI = true; 
+                SetTexture(GameState->SphereTexture, GameState->Renderer);
+                if(MouseOnClick(Input, LEFT_CLICK))
+                {
+                    GameState->AlphaValueSelected = Index;
+                    GameState->UIStateSelected = ALPHA_SELECTED;
                 }
             }
                  

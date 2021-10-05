@@ -35,7 +35,8 @@ enum ui_state
 {
     MESH_SELECTED,
     TEXTURE_SELECTED,
-    SHADER_SELECTED
+    SHADER_SELECTED,
+    ALPHA_SELECTED,
 };
 
 #define BIT(Value) (1 << Value)
@@ -104,6 +105,7 @@ struct entity
     int MeshIndex;
     int TextureIndex;
     int ShaderIndex;
+    bool HasAlpha;
 };
 
 struct entity_list
@@ -168,6 +170,7 @@ struct game_state
     int MeshSelectedIndex;
     int TextureSelectedIndex;
     int ShaderSelectedIndex;
+    int AlphaValueSelected;
 };  
 
 #endif
