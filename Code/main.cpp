@@ -206,8 +206,7 @@ ProcessMeshShouldMove(app_input *Input, game_state *GameState)
     int Index = SearchCloserMesh(TValues, GameState->EntityList.Counter);
     entity *ActualEntity = FirstEntity + Index;
     if(Index >= 0)
-    {
-        
+    { 
         bounding_sphere *SphereSelected = &ActualEntity->BoundingSphere;
         GameState->EntitySelectedID = ActualEntity->ID;
         GameState->SpherePositionWhenClick = SphereSelected->Position;
@@ -377,8 +376,8 @@ OrderEntitiesByDistance(game_state *GameState, entity *Entity, int Count, v3 Vie
             {
                 entity *ActualEntity = FirstEntity + I;
                 entity *EntityToCheck = FirstEntity + J;
-                float ActualEntityDistance = LengthV3(ViewPosition - ActualEntity->BoundingSphere.Position);
-                float EntityToCheckDistance = LengthV3(ViewPosition - EntityToCheck->BoundingSphere.Position);
+                float ActualEntityDistance = LengthV3(ViewPosition - ActualEntity->Position);
+                float EntityToCheckDistance = LengthV3(ViewPosition - EntityToCheck->Position);
                 if(ActualEntityDistance > EntityToCheckDistance)
                 {
                     entity TempEntity = *ActualEntity;
@@ -438,7 +437,24 @@ ProcessInput(app_input *Input, game_state *GameState, float DeltaTime)
         {
             v3 MousePositionOnTerrain = MouseRayPlaneIntersection(Input, &GameState->Camera, {0.0f, 0.0f, 0.0f}, GameState->PerspectiveProj);
             ModifyTerrainHeight(MousePositionOnTerrain, GameState->Terrain, GameState->Renderer, DeltaTime);
+        }
+
+        if(Input->KeyboardKeys->Keys['X'].IsDown)
+        {
+            GameState->MoveMeshState = X_AXIS;
         } 
+        if(Input->KeyboardKeys->Keys['Y'].IsDown)
+        {
+            GameState->MoveMeshState = Y_AXIS;
+        }
+        if(Input->KeyboardKeys->Keys['Z'].IsDown)
+        {
+            GameState->MoveMeshState = Z_AXIS;
+        }
+        if(Input->KeyboardKeys->Keys['A'].IsDown)
+        {
+            GameState->MoveMeshState = ALL_AXIS;
+        }
     }
 
     if(GetBit(&GameState->StateBitField, ENTITY_SELECTOR))
@@ -580,7 +596,10 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
     // move selected mesh on the camera plane...
     if(GameState->MoveMesh)
     {
-        v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera, GameState->SpherePositionWhenClick, GameState->PerspectiveProj);
+        char Buffer[100];
+        sprintf(Buffer, "MoveMeshState: %d\n", GameState->MoveMeshState);
+        OutputDebugString(Buffer);
+
         entity *FirstEntity = GameState->EntityList.Entities;
         FirstEntity -= (GameState->EntityList.Counter - 1);
         entity *EntitySelected = FirstEntity; 
@@ -594,11 +613,34 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
             }
             ++EntitySelected;
         }
-        EntitySelected->BoundingSphere.Position = MousePositionOnPlane - GameState->Offset;
 
-        char Buffer[100];
-        sprintf(Buffer, "Mesh ID: %d\n", EntitySelected->ID);
-        OutputDebugString(Buffer);
+        v3 MousePositionOnPlane = MouseRayCameraPlaneIntersection(Input, &GameState->Camera,
+                                                                  GameState->SpherePositionWhenClick,
+                                                                  GameState->PerspectiveProj);
+        switch(GameState->MoveMeshState)
+        {
+            case ALL_AXIS:
+            {
+                EntitySelected->BoundingSphere.Position = MousePositionOnPlane - GameState->Offset;
+                EntitySelected->Position = EntitySelected->BoundingSphere.Position;
+            }break;
+            case X_AXIS:
+            {
+                EntitySelected->BoundingSphere.Position.X = MousePositionOnPlane.X - GameState->Offset.X;
+                EntitySelected->Position.X = EntitySelected->BoundingSphere.Position.X;
+            }break;
+            case Y_AXIS:
+            {
+                EntitySelected->BoundingSphere.Position.Y = MousePositionOnPlane.Y - GameState->Offset.Y;
+                EntitySelected->Position.Y = EntitySelected->BoundingSphere.Position.Y;
+            }break;
+            case Z_AXIS:
+            {
+                EntitySelected->BoundingSphere.Position.Z = MousePositionOnPlane.Z - GameState->Offset.Z;
+                EntitySelected->Position.Z = EntitySelected->BoundingSphere.Position.Z;
+            }break;
+        }
+
     }
 
     // Render...
@@ -656,7 +698,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                 shader *ActualShader = FirstShader + FirstEntity->ShaderIndex;
                 if(GameState->ShaderList.Counter <= 0 || FirstEntity->ShaderIndex == -1) ActualShader = GameState->Shader;
 
-                World = TranslationMat4(FirstEntity->BoundingSphere.Position);
+                World = TranslationMat4(FirstEntity->Position);
                 SetWorldMat4(GameState->Renderer, World);
                 SetTexture(ActualTexture, GameState->Renderer);
                 RenderMesh(ActualMesh, ActualShader, GameState->Renderer);
@@ -696,7 +738,7 @@ GameUpdateAndRender(app_memory *Memory, app_input *Input, float DeltaTime)
                 shader *ActualShader = FirstShader + FirstEntity->ShaderIndex;
                 if(GameState->ShaderList.Counter <= 0 || FirstEntity->ShaderIndex == -1) ActualShader = GameState->Shader;
 
-                World = TranslationMat4(FirstEntity->BoundingSphere.Position);
+                World = TranslationMat4(FirstEntity->Position);
                 SetWorldMat4(GameState->Renderer, World);
                 SetTexture(ActualTexture, GameState->Renderer);
 

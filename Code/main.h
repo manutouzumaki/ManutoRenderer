@@ -31,6 +31,14 @@ enum states
     ENTITY_SELECTOR,
 };
 
+enum move_mesh_state
+{
+    ALL_AXIS,
+    X_AXIS,
+    Y_AXIS,
+    Z_AXIS
+};
+
 enum ui_state
 {
     MESH_SELECTED,
@@ -153,9 +161,11 @@ struct game_state
     texture *SphereTexture;
     terrain *Terrain;
     texture *TerrainTexture;
+    mesh *CubeMesh;
  
     bool MouseOnUI; 
     bool MoveMesh; 
+    int MoveMeshState;
     int EntitySelectedID;
     v3 SpherePositionWhenClick;
     v3 Offset;
