@@ -306,6 +306,7 @@ PLATFORM_CREATE_RENDERER(PlatformCreateRenderer)
                     &Renderer->WireFrameRasterizer,
                     &Renderer->FillRasterizerCullBack,
                     &Renderer->FillRasterizerCullFront,
+                    &Renderer->FillRasterizerCullNone,
                     &Renderer->DepthStencilOn,
                     &Renderer->DepthStencilOff,
                     &Renderer->AlphaBlendEnable,
@@ -414,9 +415,6 @@ int WINAPI WinMain(HINSTANCE Instance,
         unsigned int Width  = ClientDimensions.right - ClientDimensions.left;
         unsigned int Height = ClientDimensions.bottom - ClientDimensions.top;
     
-        //AppInput.MouseDefaultX = WND_WIDTH / 2;
-        //AppInput.MouseDefaultY = WND_HEIGHT / 2;
-
         GlobalRunning = true;
         ShowWindow(Window->Window, nShowCmd);
         

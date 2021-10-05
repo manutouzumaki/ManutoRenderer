@@ -4,14 +4,19 @@ cbuffer CBufferProjection : register(b0)
     matrix Proj;
     matrix View;
     float3 ViewPosition;
+    float Time;
+};
+
+cbuffer CBufferMemory : register(b1)
+{
     float MemoryData;
 };
 
 struct VS_Input
 {
    float3 pos : POSITION;
-   float3 norm : NORMAL;
    float2 tex0 : TEXCOORD0;
+   float3 norm : NORMAL;
 };
 
 struct PS_Input

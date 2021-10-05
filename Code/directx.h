@@ -17,6 +17,7 @@ struct renderer
     ID3D11RasterizerState *WireFrameRasterizer;
     ID3D11RasterizerState *FillRasterizerCullBack;
     ID3D11RasterizerState *FillRasterizerCullFront;
+    ID3D11RasterizerState *FillRasterizerCullNone;
     // Stencil and Depth buffer
     ID3D11DepthStencilState *DepthStencilOn;
     ID3D11DepthStencilState *DepthStencilOff;
@@ -33,6 +34,10 @@ struct shader
     ID3D11InputLayout *InputLayout;
 };
 
+struct constant_buffer
+{
+    ID3D11Buffer *Buffer;
+};
 
 struct mesh
 {
@@ -45,13 +50,13 @@ struct mesh
 };
 
 
-struct mat4_constant_buffer
+struct global_constant_buffer
 {
     mat4 World;
     mat4 Proj;
     mat4 View;
     v3 ViewPosition;
-    float MemoryData;
+    float Time;
 };
 
 struct texture

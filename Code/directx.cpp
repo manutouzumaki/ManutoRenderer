@@ -1,11 +1,8 @@
-static mat4_constant_buffer GlobalMat4ConstBuffer; 
-static ID3D11Buffer *GlobalMat4Buffer;
-
+static global_constant_buffer GlobalConstBuffer; 
+static ID3D11Buffer *GlobalBuffer;
 
 //static v3_constant_buffer GlobalV3ConstBuffer; 
 //static ID3D11Buffer *GlobalV3Buffer;
-
-
 
 static void
 D3D11Initialize(HWND Window,
@@ -17,6 +14,7 @@ D3D11Initialize(HWND Window,
                 ID3D11RasterizerState **WireFrameRasterizer,
                 ID3D11RasterizerState **FillRasterizerCullBack,
                 ID3D11RasterizerState **FillRasterizerCullFront,
+                ID3D11RasterizerState **FillRasterizerCullNone,
                 ID3D11DepthStencilState **DepthStencilOn,
                 ID3D11DepthStencilState **DepthStencilOff,
                 ID3D11BlendState **AlphaBlendEnable,
@@ -108,6 +106,13 @@ D3D11Initialize(HWND Window,
     DSDesc.StencilEnable = true;
     DSDesc.StencilReadMask = 0xFF;
     DSDesc.StencilWriteMask = 0xFF;
+    
+    // Stencil operations if pixel is front-facing
+    DSDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+    DSDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    DSDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
     // Stencil operations if pixel is back-facing
     DSDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
     DSDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
@@ -122,6 +127,7 @@ D3D11Initialize(HWND Window,
     (*RenderContext)->OMSetDepthStencilState(*DepthStencilOn, 1);
     
     Result = (*Device)->CreateTexture2D(&DepthTexDesc, NULL, &DepthTexture);
+    
     // create the depth stencil view
     D3D11_DEPTH_STENCIL_VIEW_DESC DescDSV = {};
     DescDSV.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -143,7 +149,7 @@ D3D11Initialize(HWND Window,
     BlendStateDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
     BlendStateDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
     BlendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    BlendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    BlendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
     BlendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
     BlendStateDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
     (*Device)->CreateBlendState(&BlendStateDesc, AlphaBlendEnable);
@@ -165,17 +171,23 @@ D3D11Initialize(HWND Window,
     (*RenderContext)->RSSetViewports(1, &Viewport);
 
     // Create Rasterizer for set render types
-    D3D11_RASTERIZER_DESC FillRasterizerNoneDesc = {};
-    FillRasterizerNoneDesc.FillMode = D3D11_FILL_SOLID;
-    FillRasterizerNoneDesc.CullMode = D3D11_CULL_FRONT;
-    FillRasterizerNoneDesc.DepthClipEnable = true;
-    (*Device)->CreateRasterizerState(&FillRasterizerNoneDesc, FillRasterizerCullFront);
+    D3D11_RASTERIZER_DESC FillRasterizerFrontDesc = {};
+    FillRasterizerFrontDesc.FillMode = D3D11_FILL_SOLID;
+    FillRasterizerFrontDesc.CullMode = D3D11_CULL_FRONT;
+    FillRasterizerFrontDesc.DepthClipEnable = true;
+    (*Device)->CreateRasterizerState(&FillRasterizerFrontDesc, FillRasterizerCullFront);
 
     D3D11_RASTERIZER_DESC FillRasterizerBackDesc = {};
     FillRasterizerBackDesc.FillMode = D3D11_FILL_SOLID;
     FillRasterizerBackDesc.CullMode = D3D11_CULL_BACK;
     FillRasterizerBackDesc.DepthClipEnable = true;
     (*Device)->CreateRasterizerState(&FillRasterizerBackDesc, FillRasterizerCullBack);
+
+    D3D11_RASTERIZER_DESC FillRasterizerNoneDesc = {};
+    FillRasterizerNoneDesc.FillMode = D3D11_FILL_SOLID;
+    FillRasterizerNoneDesc.CullMode = D3D11_CULL_NONE;
+    FillRasterizerNoneDesc.DepthClipEnable = true;
+    (*Device)->CreateRasterizerState(&FillRasterizerNoneDesc, FillRasterizerCullNone);
 
 
     D3D11_RASTERIZER_DESC WireFrameRasterizerDesc = {};
@@ -334,66 +346,82 @@ InitConstBuffers(renderer *Renderer)
     // Create constant Buffers and  
     D3D11_BUFFER_DESC ConstantBufferDesc = {};
     ConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    ConstantBufferDesc.ByteWidth = (unsigned int)(sizeof(mat4_constant_buffer) + (16 - (sizeof(mat4_constant_buffer) % 16)));
+    ConstantBufferDesc.ByteWidth = (unsigned int)(sizeof(global_constant_buffer) + (16 - (sizeof(global_constant_buffer) % 16)));
     ConstantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
     ConstantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     ConstantBufferDesc.MiscFlags = 0;
     ConstantBufferDesc.StructureByteStride = 0;
-    HRESULT Result = Renderer->Device->CreateBuffer(&ConstantBufferDesc, 0, &GlobalMat4Buffer);
+    HRESULT Result = Renderer->Device->CreateBuffer(&ConstantBufferDesc, 0, &GlobalBuffer);
     if(SUCCEEDED(Result))
     {
         OutputDebugString("Mat4Buffer Created!\n");
     }
 }
 
+#define CreateConstantBuffer(ConstBuffer, Type, Renderer, Arena) \
+    do { \
+        ConstBuffer = (constant_buffer *)PushStruct(Arena, constant_buffer); \
+        D3D11_BUFFER_DESC BufferDesc = {}; \
+        BufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; \
+        BufferDesc.ByteWidth = (unsigned int)(sizeof(Type) + (16 - (sizeof(Type) % 16))); \
+        BufferDesc.Usage = D3D11_USAGE_DYNAMIC; \
+        BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; \
+        BufferDesc.MiscFlags = 0; \
+        BufferDesc.StructureByteStride = 0; \
+        HRESULT Result = Renderer->Device->CreateBuffer(&BufferDesc, 0, &ConstBuffer->Buffer); \
+        if(SUCCEEDED(Result)) \
+        { \
+            OutputDebugString("Constant Buffer Created!\n"); \
+        } \
+    } while(0);
 
-#define MapConstantBuffer(RenderContext, ConstBuffer, Type, Buffer) \
+#define MapConstantBuffer(RenderContext, ConstBuffer, Type, Buffer, Register) \
     do { \
         D3D11_MAPPED_SUBRESOURCE GPUConstantBufferData = {}; \
         RenderContext->Map(Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &GPUConstantBufferData); \
         memcpy(GPUConstantBufferData.pData, &ConstBuffer, sizeof(Type)); \
         RenderContext->Unmap(Buffer, 0); \
-        RenderContext->VSSetConstantBuffers( 0, 1, &Buffer); \
+        RenderContext->VSSetConstantBuffers( Register, 1, &Buffer); \
     } while(0);
 
 static void
 SetWorldMat4(renderer *Renderer, mat4 World)
 {
-    GlobalMat4ConstBuffer.World = World;
-    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
-                      mat4_constant_buffer, GlobalMat4Buffer);
+    GlobalConstBuffer.World = World;
+    MapConstantBuffer(Renderer->RenderContext, GlobalConstBuffer,
+                      global_constant_buffer, GlobalBuffer, 0);
 }
 
 static void
 SetProjectionMat4(renderer *Renderer, mat4 Projection)
 {
-    GlobalMat4ConstBuffer.Proj = Projection;
-    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
-                      mat4_constant_buffer, GlobalMat4Buffer);
+    GlobalConstBuffer.Proj = Projection;
+    MapConstantBuffer(Renderer->RenderContext, GlobalConstBuffer,
+                      global_constant_buffer, GlobalBuffer, 0);
 }
 
 static void
 SetViewMat4(renderer *Renderer, mat4 View)
 {
-    GlobalMat4ConstBuffer.View = View;
-    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
-                      mat4_constant_buffer, GlobalMat4Buffer); 
+    GlobalConstBuffer.View = View;
+    MapConstantBuffer(Renderer->RenderContext, GlobalConstBuffer,
+                      global_constant_buffer, GlobalBuffer, 0); 
 }
 
 static void
 SetViewPostion(renderer *Renderer, v3 ViewPosition)
 {
-    GlobalMat4ConstBuffer.ViewPosition = ViewPosition;
-    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
-                      mat4_constant_buffer, GlobalMat4Buffer);
+    GlobalConstBuffer.ViewPosition = ViewPosition;
+    MapConstantBuffer(Renderer->RenderContext, GlobalConstBuffer,
+                      global_constant_buffer, GlobalBuffer, 0);
 }
 
 static void 
-SetMemoryData(renderer *Renderer, float MemoryData)
+SetTime(renderer *Renderer, float Time)
 {
-    GlobalMat4ConstBuffer.MemoryData = MemoryData;
-    MapConstantBuffer(Renderer->RenderContext, GlobalMat4ConstBuffer,
-                      mat4_constant_buffer, GlobalMat4Buffer);
+    GlobalConstBuffer.Time = Time;
+    MapConstantBuffer(Renderer->RenderContext, GlobalConstBuffer,
+                      global_constant_buffer, GlobalBuffer, 0);
 }
 
 static mesh *
@@ -910,17 +938,21 @@ SetTexture(texture *Texture, renderer *Renderer)
 static void 
 SetFillType(renderer *Renderer, int Type)
 {
-    if(Type == 0)
+    if(Type == SOLID_BACK_CULL)
     {
         Renderer->RenderContext->RSSetState(Renderer->FillRasterizerCullBack);
     }
-    else if(Type == 1)
+    else if(Type == SOLID_FRONT_CULL)
     { 
         Renderer->RenderContext->RSSetState(Renderer->FillRasterizerCullFront);
     }
-    else if(Type == 2)
+    else if(Type == WIREFRAME)
     { 
         Renderer->RenderContext->RSSetState(Renderer->WireFrameRasterizer);
+    }
+    else if(Type == SOLID_NONE_CULL)
+    {
+        Renderer->RenderContext->RSSetState(Renderer->FillRasterizerCullNone);
     }
 }
 

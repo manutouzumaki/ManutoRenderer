@@ -6,6 +6,7 @@ struct window;
 // opaque struct define in directx.h and opengl.h
 struct renderer;
 struct shader;
+struct constant_buffer;
 
 
 #define PLATFORM_OPEN_FILE_EXPLORER(name) bool name(void **FileData, arena *Arena)

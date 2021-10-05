@@ -4,7 +4,7 @@ cbuffer CBufferProjection : register(b0)
     matrix Proj;
     matrix View;
     float3 ViewPosition;
-    float MemoryData;
+    float Time;
 };
 
 struct VS_Input

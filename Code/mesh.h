@@ -12,6 +12,5 @@ struct obj
     int *Indices;
     unsigned int IndicesCount;
 };
-   
-
+  
 #endif

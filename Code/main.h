@@ -20,6 +20,7 @@
 #define SOLID_BACK_CULL 0
 #define SOLID_FRONT_CULL 1
 #define WIREFRAME 2
+#define SOLID_NONE_CULL 3
 
 #define DEPTH_STENCIL_ON 0
 #define DEPTH_STENCIL_OFF 1
@@ -95,13 +96,14 @@ struct shader_list
 
 struct entity
 {
+    int ID;
     v3 Position;
     v3 Scale;
     v3 Rotation;
     bounding_sphere BoundingSphere;
-    unsigned int MeshIndex;
-    unsigned int TextureIndex;
-    unsigned int ShaderIndex;
+    int MeshIndex;
+    int TextureIndex;
+    int ShaderIndex;
 };
 
 struct entity_list
@@ -110,23 +112,32 @@ struct entity_list
     int Counter;
 };
 
+struct ui_constant_buffer_data
+{
+    float MemoryData;
+};
+
 struct game_state
 {
     window *Window;
     renderer *Renderer;
     unsigned int StateBitField;
-
+    
+    // arenas
     arena RenderArena;
     arena FileArena;
     arena MeshListArena;
     arena TextureListArena;
     arena ShaderListArena;
     arena EntityArena;
-
+    // shaders
     shader *Shader;
     shader *SkyboxShader;
     shader *UIShader;
     shader *MemoryUIShader;
+    // uiniform
+    ui_constant_buffer_data UIData;
+    constant_buffer *UIBuffer;  
 
     mat4 PerspectiveProj;
     mat4 OrthogonalProj; 
@@ -143,7 +154,7 @@ struct game_state
  
     bool MouseOnUI; 
     bool MoveMesh; 
-    bounding_sphere *SphereSelected;
+    int EntitySelectedID;
     v3 SpherePositionWhenClick;
     v3 Offset;
 

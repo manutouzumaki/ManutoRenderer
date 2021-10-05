@@ -75,12 +75,16 @@ ProcessCameraDistance(app_input *Input, arc_camera *Camera, float DeltaTime)
 {
     if(Input->MouseWheel != 0)
     {
-        v3 NewPosition = Camera->Position + (Camera->Front * Input->MouseWheel) * DeltaTime; 
+        v3 NewPosition = Camera->Position + (Camera->Front * Input->MouseWheel) * DeltaTime;
         float NewDistance = LengthV3(Camera->Target - NewPosition);
-        Camera->Position = NewPosition;
-        v3 Temp = NormalizeV3(Camera->PosRelativeToTarget);
-        Temp = Temp * NewDistance;
-        Camera->PosRelativeToTarget = Temp;
+        v3 CameraToTarget = NormalizeV3(Camera->Target - NewPosition);
+        if(DotV3(CameraToTarget, Camera->Front) >= 0.0f)
+        {
+            Camera->Position = NewPosition;
+            v3 Temp = NormalizeV3(Camera->PosRelativeToTarget);
+            Temp = Temp * NewDistance;
+            Camera->PosRelativeToTarget = Temp;
+        }
     }
 }
 

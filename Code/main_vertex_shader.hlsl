@@ -4,14 +4,14 @@ cbuffer CBufferProjection : register(b0)
     matrix Proj;
     matrix View;
     float3 ViewPosition;
-    float MemoryData;
+    float Time;
 };
 
 struct VS_Input
 {
    float3 pos : POSITION;
-   float3 norm : NORMAL;
    float2 tex0 : TEXCOORD0;
+   float3 norm : NORMAL;
 };
 
 struct PS_Input
@@ -42,7 +42,6 @@ PS_Input VS_Main( VS_Input vertex )
     // calculate the normal vector against the world matrix only
     vsOut.norm = mul(vertex.norm, (float3x3)World);
     vsOut.norm = normalize(vsOut.norm);
-    //vsOut.norm = vertex.norm;
 
     vsOut.viewDir = normalize(viewDirection.xyz);
     vsOut.lightDir = normalize(lightDirection.xyz);
